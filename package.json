@@ -1,0 +1,23 @@
+{
+  "name": "airlink-asset-tracker",
+  "version": "0.1.0",
+  "private": true,
+  "packageManager": "pnpm@11.16.0",
+  "engines": {
+    "node": ">=20"
+  },
+  "scripts": {
+    "dev": "pnpm --filter @airlink/web dev",
+    "build": "pnpm --filter @airlink/web build",
+    "start": "pnpm --filter @airlink/web start",
+    "lint": "pnpm --filter @airlink/web lint",
+    "typecheck": "pnpm -r typecheck",
+    "db:push": "supabase db push",
+    "db:new": "supabase migration new",
+    "db:diff": "supabase db diff"
+  },
+  "devDependencies": {
+    "supabase": "^2.109.1",
+    "typescript": "^5.7.2"
+  }
+}
