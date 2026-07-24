@@ -17,6 +17,10 @@ build/
 # cloudflare wrangler
 .wrangler/
 
+# supabase cli
+supabase/.temp/
+supabase/.branches/
+
 # logs
 *.log
 npm-debug.log*
