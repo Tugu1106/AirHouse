@@ -16,9 +16,11 @@ export async function requireActor(): Promise<ActorContext> {
 }
 
 export async function getCurrentUserEmail(): Promise<string | null> {
+  // Read the email from the session cookie (no network round-trip) — this is on
+  // the initial-load hot path and it's only used to display the address.
   const supabase = await createSupabaseServerClient();
   const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  return user?.email ?? null;
+    data: { session },
+  } = await supabase.auth.getSession();
+  return session?.user?.email ?? null;
 }
