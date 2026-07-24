@@ -39,6 +39,12 @@ export const EMPLOYEE_STATUSES: { key: EmployeeStatus; label: string }[] = [
   { key: 'resigned', label: 'Resigned' },
 ];
 
+// Predefined job positions — add new ones here (the web form reads this list).
+export const EMPLOYEE_POSITIONS: { key: string; label: string }[] = [
+  { key: 'developer', label: 'Developer' },
+  { key: 'agent', label: 'Agent' },
+];
+
 export interface Employee {
   id: UUID;
   name: string;

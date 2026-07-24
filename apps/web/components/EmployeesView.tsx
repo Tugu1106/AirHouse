@@ -3,8 +3,8 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useActionState } from 'react';
 import Link from 'next/link';
-import { EMPLOYEE_STATUSES, type EmployeeStatus } from '@airlink/core/types';
-import type { Employee, ItemWithRelations } from '@airlink/core';
+import { EMPLOYEE_STATUSES, EMPLOYEE_POSITIONS, type EmployeeStatus } from '@airlink/core/types';
+import type { Employee } from '@airlink/core';
 import { useData } from './DataProvider';
 import { Dialog } from './ItemsView';
 import { SubmitButton } from './SubmitButton';
@@ -23,8 +23,10 @@ const STATUS_STYLES: Record<EmployeeStatus, string> = {
   resigned: 'bg-slate-200 text-slate-400',
 };
 const statusLabel = (s: string) => EMPLOYEE_STATUSES.find((x) => x.key === s)?.label ?? s;
+const positionLabel = (p: string | null) =>
+  EMPLOYEE_POSITIONS.find((x) => x.key === p)?.label ?? p ?? '—';
 
-type Modal = { mode: 'add' } | { mode: 'edit'; emp: Employee } | { mode: 'detail'; emp: Employee } | null;
+type Modal = { mode: 'add' } | { mode: 'edit'; emp: Employee } | null;
 
 export function EmployeesView() {
   const { employees, branches, items, refresh } = useData();
@@ -118,7 +120,7 @@ export function EmployeesView() {
             {visible.map((e) => (
               <tr key={e.id}>
                 <td className="px-4 py-3 font-medium text-slate-200">{e.name}</td>
-                <td className="px-4 py-3 text-slate-400">{e.position ?? '—'}</td>
+                <td className="px-4 py-3 text-slate-400">{positionLabel(e.position)}</td>
                 <td className="px-4 py-3 text-slate-400">{e.phone ?? '—'}</td>
                 <td className="px-4 py-3 text-slate-400">{branchName(e.branch_id)}</td>
                 <td className="px-4 py-3">
@@ -129,9 +131,9 @@ export function EmployeesView() {
                 <td className="px-4 py-3 text-slate-400">{itemCount(e.id)}</td>
                 <td className="px-4 py-3">
                   <div className="flex items-center justify-end gap-2">
-                    <button onClick={() => setModal({ mode: 'detail', emp: e })} className="text-slate-400 hover:text-brand">
+                    <Link href={`/employees/${e.id}`} className="text-slate-400 hover:text-brand">
                       View
-                    </button>
+                    </Link>
                     <button onClick={() => setModal({ mode: 'edit', emp: e })} className="text-slate-400 hover:text-brand">
                       Edit
                     </button>
@@ -153,69 +155,11 @@ export function EmployeesView() {
           <EmployeeForm branches={branches} emp={modal.emp} onDone={done} />
         </Dialog>
       )}
-      {modal?.mode === 'detail' && (
-        <Dialog title={modal.emp.name} onClose={() => setModal(null)}>
-          <EmployeeDetail
-            emp={modal.emp}
-            branchName={branchName(modal.emp.branch_id)}
-            items={items.filter((i) => i.assigned_to === modal.emp.id && !i.deleted_at)}
-          />
-        </Dialog>
-      )}
     </>
   );
 }
 
-function EmployeeDetail({
-  emp,
-  branchName,
-  items,
-}: {
-  emp: Employee;
-  branchName: string;
-  items: ItemWithRelations[];
-}) {
-  return (
-    <div className="space-y-4">
-      <dl className="grid grid-cols-2 gap-x-6 gap-y-2 text-sm">
-        <Row label="Position" value={emp.position ?? '—'} />
-        <Row label="Phone" value={emp.phone ?? '—'} />
-        <Row label="Branch" value={branchName} />
-        <Row label="Status" value={statusLabel(emp.status)} />
-      </dl>
-      <div>
-        <h3 className="mb-2 text-sm font-semibold text-slate-300">Assigned items ({items.length})</h3>
-        {items.length === 0 ? (
-          <p className="text-sm text-slate-400">No items currently assigned.</p>
-        ) : (
-          <ul className="divide-y divide-slate-800 rounded-md border border-slate-800">
-            {items.map((i) => (
-              <li key={i.id} className="flex items-center justify-between px-3 py-2 text-sm">
-                <span className="text-slate-300">
-                  {i.type} · {[i.properties.serial, i.properties.model].filter(Boolean).join(' ') || '—'}
-                </span>
-                <Link href={`/item/${i.id}`} className="text-slate-400 hover:text-brand">
-                  history →
-                </Link>
-              </li>
-            ))}
-          </ul>
-        )}
-      </div>
-    </div>
-  );
-}
-
-function Row({ label, value }: { label: string; value: string }) {
-  return (
-    <div className="flex justify-between border-b border-slate-800 py-1">
-      <dt className="text-slate-400">{label}</dt>
-      <dd className="font-medium text-slate-200">{value}</dd>
-    </div>
-  );
-}
-
-function EmployeeForm({
+export function EmployeeForm({
   branches,
   emp,
   onDone,
@@ -244,7 +188,14 @@ function EmployeeForm({
         </div>
         <div>
           <label className="block text-sm font-medium text-slate-300">Position</label>
-          <input name="position" defaultValue={emp?.position ?? ''} className="mt-1 w-full rounded-md border border-slate-700 bg-slate-800 text-slate-100 placeholder-slate-500 px-3 py-2 text-sm" />
+          <select name="position" defaultValue={emp?.position ?? ''} className="mt-1 w-full rounded-md border border-slate-700 bg-slate-800 text-slate-100 px-3 py-2 text-sm">
+            <option value="">— none —</option>
+            {EMPLOYEE_POSITIONS.map((p) => (
+              <option key={p.key} value={p.key}>
+                {p.label}
+              </option>
+            ))}
+          </select>
         </div>
         <div>
           <label className="block text-sm font-medium text-slate-300">Branch</label>

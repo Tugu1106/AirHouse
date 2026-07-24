@@ -19,6 +19,7 @@ import {
   updateBranchPosition,
   createEmployee,
   updateEmployee,
+  deleteEmployee,
   getItemType,
   type ItemStatus,
   type EmployeeStatus,
@@ -241,6 +242,16 @@ export async function createEmployeeAction(_prev: ActionResult | null, formData:
   }
   revalidatePath('/dashboard');
   revalidatePath('/branch', 'layout');
+  return { ok: true };
+}
+
+export async function deleteEmployeeAction(id: string): Promise<ActionResult> {
+  try {
+    await requireActor();
+    await deleteEmployee(id);
+  } catch (e) {
+    return { ok: false, error: errMessage(e) };
+  }
   return { ok: true };
 }
 

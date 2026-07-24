@@ -19,7 +19,8 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   const isActive = (href: string) =>
     pathname === href ||
     (href === '/map' && pathname === '/') ||
-    (href === '/branches' && pathname.startsWith('/branch/'));
+    (href === '/branches' && pathname.startsWith('/branch/')) ||
+    (href === '/employees' && pathname.startsWith('/employees/'));
 
   return (
     <div className="min-h-screen">
