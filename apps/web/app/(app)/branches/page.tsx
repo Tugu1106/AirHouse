@@ -4,9 +4,18 @@ import Link from 'next/link';
 import { useData } from '@/components/DataProvider';
 import { AdminBar } from '@/components/AdminBar';
 import { branchStats } from '@/lib/branchStats';
+import { CardsSkeleton } from '@/components/Skeleton';
 
 export default function BranchesPage() {
-  const { branches, items, employees } = useData();
+  const { branches, items, employees, loading } = useData();
+
+  if (loading) {
+    return (
+      <main className="mx-auto max-w-7xl px-6 py-6">
+        <CardsSkeleton />
+      </main>
+    );
+  }
 
   return (
     <main className="mx-auto max-w-7xl space-y-6 px-6 py-6">

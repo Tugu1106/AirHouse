@@ -4,13 +4,22 @@ import { useState } from 'react';
 import { useData } from '@/components/DataProvider';
 import { ItemsView } from '@/components/ItemsView';
 import { AdminBar } from '@/components/AdminBar';
+import { ListSkeleton } from '@/components/Skeleton';
 
 export default function InventoryPage() {
-  const { items, branches } = useData();
+  const { items, branches, loading } = useData();
   const [branchId, setBranchId] = useState<string | undefined>(undefined);
 
   const live = items.filter((i) => !i.deleted_at);
   const countFor = (id?: string) => (id ? live.filter((i) => i.branch_id === id).length : live.length);
+
+  if (loading) {
+    return (
+      <main className="mx-auto max-w-7xl px-6 py-6">
+        <ListSkeleton />
+      </main>
+    );
+  }
 
   return (
     <main className="mx-auto max-w-7xl space-y-5 px-6 py-6">

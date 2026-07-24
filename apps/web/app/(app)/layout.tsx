@@ -1,13 +1,8 @@
-import { loadDataBundle } from '@/lib/data';
 import { AppProviders } from '@/components/AppProviders';
 
-// Loads the whole data bundle ONCE per full page load, then hands it to the
-// client provider. Because this layout is shared, client-side navigation
-// between dashboard / branch / employees does NOT re-run it — switching views
-// is instant and hits the database zero times until a write triggers refresh().
-export const dynamic = 'force-dynamic';
-
-export default async function AppLayout({ children }: { children: React.ReactNode }) {
-  const initial = await loadDataBundle();
-  return <AppProviders initial={initial}>{children}</AppProviders>;
+// The shell (header + nav) renders immediately; the DataProvider loads the data
+// bundle client-side and pages show skeletons until it arrives. No server-side
+// data fetch blocks the first paint.
+export default function AppLayout({ children }: { children: React.ReactNode }) {
+  return <AppProviders>{children}</AppProviders>;
 }

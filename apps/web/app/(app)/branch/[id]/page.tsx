@@ -8,6 +8,7 @@ import { useData } from '@/components/DataProvider';
 import { ItemsView, Dialog } from '@/components/ItemsView';
 import { SubmitButton } from '@/components/SubmitButton';
 import { branchStats, distanceKm, inMongolia, type Row } from '@/lib/branchStats';
+import { BranchSkeleton } from '@/components/Skeleton';
 import {
   renameBranchAction,
   deleteBranchAction,
@@ -20,11 +21,19 @@ const statusLabel = (s: string) => EMPLOYEE_STATUSES.find((x) => x.key === s)?.l
 export default function BranchPage() {
   const params = useParams<{ id: string }>();
   const router = useRouter();
-  const { branches, items, employees, refresh } = useData();
+  const { branches, items, employees, refresh, loading } = useData();
   const [settingsOpen, setSettingsOpen] = useState(false);
 
   const id = params.id;
   const branch = branches.find((b) => b.id === id);
+
+  if (loading) {
+    return (
+      <main className="mx-auto max-w-7xl px-6 py-6">
+        <BranchSkeleton />
+      </main>
+    );
+  }
 
   if (!branch) {
     return (
