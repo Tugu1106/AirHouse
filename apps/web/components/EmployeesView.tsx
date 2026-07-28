@@ -174,6 +174,15 @@ export function EmployeeForm({
     if (state?.ok) onDone();
   }, [state, onDone]);
 
+  // Match the stored position to a known option by key OR label (case-insensitive),
+  // so a value like "Developer" pre-selects the "developer" option. Unknown values
+  // are shown as-is via an extra option.
+  const currentPos = emp?.position ?? '';
+  const matchedPos = EMPLOYEE_POSITIONS.find(
+    (p) => p.key.toLowerCase() === currentPos.toLowerCase() || p.label.toLowerCase() === currentPos.toLowerCase(),
+  );
+  const positionValue = matchedPos?.key ?? currentPos;
+
   return (
     <form action={formAction} className="space-y-4">
       {emp && <input type="hidden" name="id" value={emp.id} />}
@@ -188,13 +197,14 @@ export function EmployeeForm({
         </div>
         <div>
           <label className="block text-sm font-medium text-slate-300">Position</label>
-          <select name="position" defaultValue={emp?.position ?? ''} className="mt-1 w-full rounded-md border border-slate-700 bg-slate-800 text-slate-100 px-3 py-2 text-sm">
+          <select name="position" defaultValue={positionValue} className="mt-1 w-full rounded-md border border-slate-700 bg-slate-800 text-slate-100 px-3 py-2 text-sm">
             <option value="">— none —</option>
             {EMPLOYEE_POSITIONS.map((p) => (
               <option key={p.key} value={p.key}>
                 {p.label}
               </option>
             ))}
+            {positionValue && !matchedPos && <option value={positionValue}>{positionValue}</option>}
           </select>
         </div>
         <div>

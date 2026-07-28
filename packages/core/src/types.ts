@@ -43,6 +43,8 @@ export const EMPLOYEE_STATUSES: { key: EmployeeStatus; label: string }[] = [
 export const EMPLOYEE_POSITIONS: { key: string; label: string }[] = [
   { key: 'developer', label: 'Developer' },
   { key: 'agent', label: 'Agent' },
+  { key: 'finance', label: 'Finance' },
+  { key: 'supervisor', label: 'Supervisor' },
 ];
 
 export interface Employee {
