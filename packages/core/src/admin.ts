@@ -2,6 +2,8 @@
 // test runs. Destructive and admin-only; branches are always preserved.
 
 import { getServiceClient } from './supabaseClient';
+import { deleteEmployee } from './employees';
+import type { ActorContext, UUID } from './types';
 
 // Sentinel that no real row uses; `id <> this` matches every row (supabase-js
 // refuses an unfiltered delete, so we give it an always-true filter).
@@ -23,45 +25,21 @@ export async function deleteAllItems(): Promise<{ items: number }> {
 }
 
 /**
- * Delete EVERY employee and revoke their logins. Items are kept but unassigned,
- * and audit_log employee references are cleared first so the delete doesn't trip
- * the foreign keys. Branches are left untouched.
+ * Delete EVERY employee via the same graceful per-employee path used by the UI:
+ * each one's items are unassigned (recorded in item history as "unassigned —
+ * employee deleted"), their login is revoked, and the row is soft-deleted (so
+ * item history still resolves who owned what). Item ownership history is
+ * preserved. Branches are left untouched.
  */
-export async function deleteAllEmployees(): Promise<{ employees: number }> {
+export async function deleteAllEmployees(ctx: ActorContext): Promise<{ employees: number }> {
   const client = getServiceClient();
 
-  // Revoke every provisioned Supabase Auth login (best-effort).
-  const { data: withLogin, error: loginErr } = await client
-    .from('employees')
-    .select('user_id')
-    .not('user_id', 'is', null);
-  if (loginErr) throw new Error(loginErr.message);
-  for (const row of (withLogin ?? []) as { user_id: string }[]) {
-    try {
-      await client.auth.admin.deleteUser(row.user_id);
-    } catch {
-      /* ignore — the auth user may already be gone */
-    }
-  }
-
-  // Clear every foreign-key reference to employees before deleting them.
-  const unassign = await client
-    .from('items')
-    .update({ assigned_to: null })
-    .not('assigned_to', 'is', null);
-  if (unassign.error) throw new Error(unassign.error.message);
-  const clearFrom = await client
-    .from('audit_log')
-    .update({ from_employee_id: null })
-    .not('from_employee_id', 'is', null);
-  if (clearFrom.error) throw new Error(clearFrom.error.message);
-  const clearTo = await client
-    .from('audit_log')
-    .update({ to_employee_id: null })
-    .not('to_employee_id', 'is', null);
-  if (clearTo.error) throw new Error(clearTo.error.message);
-
-  const { data, error } = await client.from('employees').delete().neq('id', NIL_UUID).select('id');
+  const { data, error } = await client.from('employees').select('id').is('deleted_at', null);
   if (error) throw new Error(error.message);
-  return { employees: data?.length ?? 0 };
+  const rows = (data ?? []) as { id: UUID }[];
+
+  for (const row of rows) {
+    await deleteEmployee(row.id, ctx);
+  }
+  return { employees: rows.length };
 }

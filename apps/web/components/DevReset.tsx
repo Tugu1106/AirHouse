@@ -91,7 +91,7 @@ export function DevReset() {
       {confirm === 'employees' && (
         <ConfirmDialog
           title="Delete ALL employees?"
-          message="Every employee and their login will be permanently removed, and all items become unassigned. Branches stay. This cannot be undone."
+          message="Every employee and their login will be removed and their items unassigned. Item history (who owned what) is kept. Branches stay. This cannot be undone."
           confirmLabel="Delete all employees"
           danger
           onConfirm={() => run('employees')}

@@ -144,7 +144,8 @@ export async function deleteAllItemsAction(): Promise<ActionResult> {
 export async function deleteAllEmployeesAction(): Promise<ActionResult> {
   try {
     await requireAdmin();
-    await deleteAllEmployees();
+    const ctx = await requireActor();
+    await deleteAllEmployees(ctx);
   } catch (e) {
     return { ok: false, error: errMessage(e) };
   }

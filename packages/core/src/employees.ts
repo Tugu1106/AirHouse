@@ -182,9 +182,10 @@ export async function deleteEmployee(id: UUID, ctx: ActorContext): Promise<void>
     }
   }
 
+  // Clear email too so it frees the unique index and can be reused later.
   const { error } = await client
     .from('employees')
-    .update({ deleted_at: new Date().toISOString(), user_id: null })
+    .update({ deleted_at: new Date().toISOString(), user_id: null, email: null })
     .eq('id', id);
   if (error) throw new Error(error.message);
 }
