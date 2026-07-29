@@ -87,6 +87,13 @@ export async function updateBranch(
   if (patch.distanceHq !== undefined) update.distance_hq = patch.distanceHq;
 
   const client = getServiceClient();
+
+  if (Object.keys(update).length === 0) {
+    const { data, error } = await client.from("branches").select("*").eq("id", id).single();
+    if (error) throw new Error(error.message);
+    return data as Branch;
+  }
+
   const { data, error } = await client
     .from("branches")
     .update(update)

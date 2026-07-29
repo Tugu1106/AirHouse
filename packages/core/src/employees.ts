@@ -171,6 +171,15 @@ export async function updateEmployee(id: UUID, patch: UpdateEmployeeInput): Prom
   }
 
   const client = getServiceClient();
+
+  // Nothing to change — return the current row instead of running an empty
+  // update (Postgres errors on `.update({}).single()`).
+  if (Object.keys(update).length === 0) {
+    const { data, error } = await client.from('employees').select('*').eq('id', id).single();
+    if (error) throw new Error(error.message);
+    return data as Employee;
+  }
+
   const { data, error } = await client
     .from('employees')
     .update(update)
