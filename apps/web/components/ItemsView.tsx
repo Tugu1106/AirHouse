@@ -382,7 +382,7 @@ function useDoneOnSuccess(state: ActionResult | null, onDone: () => void) {
 }
 
 type BranchLite = { id: string; name: string };
-type EmployeeLite = { id: string; name: string };
+type EmployeeLite = { id: string; name: string; branch_id: string | null };
 
 function AddItemForm({
   branches,
@@ -497,16 +497,26 @@ function TransferForm({
   onDone: () => void;
 }) {
   const [state, formAction] = useActionState<ActionResult | null, FormData>(transferItemAction, null);
+  const [toBranchId, setToBranchId] = useState('');
+  const [toEmployeeId, setToEmployeeId] = useState('');
   useDoneOnSuccess(state, onDone);
+
+  const branchEmployees = employees.filter((employee) => employee.branch_id === toBranchId);
 
   return (
     <form action={formAction} className="space-y-4">
       <input type="hidden" name="id" value={item.id} />
       <div>
         <label className="block text-sm font-medium text-slate-300">Assign to</label>
-        <select name="to_employee" defaultValue={item.assigned_to ?? ''} className="mt-1 w-full rounded-md border border-slate-700 bg-slate-800 text-slate-100 placeholder-slate-500 px-3 py-2 text-sm">
-          <option value="">Unassigned</option>
-          {employees.map((e) => (
+        <select
+          name="to_employee"
+          value={toEmployeeId}
+          onChange={(e) => setToEmployeeId(e.target.value)}
+          disabled={!toBranchId}
+          className="mt-1 w-full rounded-md border border-slate-700 bg-slate-800 px-3 py-2 text-sm text-slate-100 placeholder-slate-500 disabled:cursor-not-allowed disabled:opacity-50"
+        >
+          <option value="">{toBranchId ? 'Unassigned' : 'Select a branch first'}</option>
+          {branchEmployees.map((e) => (
             <option key={e.id} value={e.id}>
               {e.name}
             </option>
@@ -515,14 +525,23 @@ function TransferForm({
       </div>
       <div>
         <label className="block text-sm font-medium text-slate-300">Branch</label>
-        <select name="to_branch" defaultValue={item.branch_id} className="mt-1 w-full rounded-md border border-slate-700 bg-slate-800 text-slate-100 placeholder-slate-500 px-3 py-2 text-sm">
+        <select
+          name="to_branch"
+          value={toBranchId}
+          onChange={(e) => {
+            setToBranchId(e.target.value);
+            setToEmployeeId('');
+          }}
+          className="mt-1 w-full rounded-md border border-slate-700 bg-slate-800 px-3 py-2 text-sm text-slate-100 placeholder-slate-500"
+        >
+          <option value="">Select a branch</option>
           {branches.map((b) => (
             <option key={b.id} value={b.id}>
               {b.name}
             </option>
           ))}
         </select>
-        <p className="mt-1 text-xs text-slate-400">Change the branch to move the item to another location.</p>
+        <p className="mt-1 text-xs text-slate-400">Choose a branch to see its employees and move the item there.</p>
       </div>
       {state && !state.ok && <p className="text-sm text-red-600">{state.error}</p>}
       <div className="flex justify-end">

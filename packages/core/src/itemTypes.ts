@@ -35,6 +35,7 @@ export interface ItemTypeDef {
 // shown (blank if unknown); GPU is optional and hidden when empty.
 const COMPUTER_FIELDS: ItemTypeField[] = [
   { key: 'model', label: 'Model name', type: 'text', required: true },
+  { key: 'system_name', label: 'System name', type: 'text', placeholder: 'e.g. PC-014' },
   { key: 'cpu', label: 'CPU', type: 'text', placeholder: 'e.g. i5-11500' },
   { key: 'ram', label: 'RAM', type: 'text', placeholder: 'e.g. 16GB' },
   { key: 'storage', label: 'Hard drive', type: 'text', placeholder: 'e.g. 512GB SSD' },
