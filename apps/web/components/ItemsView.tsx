@@ -28,7 +28,7 @@ const typeLabel = (key: string) => getItemType(key)?.label ?? key;
 
 function propSummary(item: ItemWithRelations): string {
   const p = item.properties ?? {};
-  const parts = [p.serial, p.model, p.subtype, p.cable_type].filter(Boolean);
+  const parts = [p.system_name, p.serial, p.model, p.subtype, p.cable_type].filter(Boolean);
   return parts.join(' · ') || '—';
 }
 
