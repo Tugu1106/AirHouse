@@ -4,7 +4,7 @@ import { useState } from 'react';
 import Link from 'next/link';
 import { useParams, useRouter } from 'next/navigation';
 import { EMPLOYEE_STATUSES, EMPLOYEE_POSITIONS } from '@airlink/core/types';
-import type { Employee } from '@airlink/core';
+import { getItemType, type Employee } from '@airlink/core';
 import { useData } from '@/components/DataProvider';
 import { Dialog } from '@/components/ItemsView';
 import { EmployeeForm } from '@/components/EmployeesView';
@@ -19,6 +19,41 @@ import {
 const statusLabel = (s: string) => EMPLOYEE_STATUSES.find((x) => x.key === s)?.label ?? s;
 const positionLabel = (p: string | null) =>
   EMPLOYEE_POSITIONS.find((x) => x.key === p)?.label ?? p ?? '—';
+
+const ITEM_ICON: Record<string, string> = {
+  desktop: '🖥️',
+  laptop: '💻',
+  monitor: '🖥️',
+  mouse: '🖱️',
+  keyboard: '⌨️',
+  printer: '🖨️',
+  cable: '🔌',
+  lan_switch: '🌐',
+};
+
+const ITEM_STATUS_STYLE: Record<string, string> = {
+  active: 'bg-emerald-500/15 text-emerald-300 ring-emerald-500/30',
+  in_repair: 'bg-amber-500/15 text-amber-300 ring-amber-500/30',
+  retired: 'bg-slate-500/15 text-slate-300 ring-slate-500/30',
+  lost: 'bg-red-500/15 text-red-300 ring-red-500/30',
+};
+
+const EMP_STATUS_STYLE: Record<string, string> = {
+  active: 'bg-emerald-500/15 text-emerald-300 ring-emerald-500/30',
+  newly_hired: 'bg-sky-500/15 text-sky-300 ring-sky-500/30',
+  on_leave: 'bg-amber-500/15 text-amber-300 ring-amber-500/30',
+  pregnancy_leave: 'bg-amber-500/15 text-amber-300 ring-amber-500/30',
+  fired: 'bg-red-500/15 text-red-300 ring-red-500/30',
+  resigned: 'bg-slate-500/15 text-slate-300 ring-slate-500/30',
+};
+
+const initialsOf = (name: string) =>
+  name
+    .split(/\s+/)
+    .filter(Boolean)
+    .slice(0, 2)
+    .map((w) => w[0]?.toUpperCase())
+    .join('') || '?';
 
 export default function EmployeePage() {
   const params = useParams<{ id: string }>();
@@ -49,54 +84,104 @@ export default function EmployeePage() {
   const assigned = items.filter((i) => i.assigned_to === id && !i.deleted_at);
 
   return (
-    <main className="mx-auto max-w-5xl space-y-6 px-6 py-6">
-      <div className="flex items-start justify-between gap-4">
-        <div>
-          <div className="text-xs uppercase tracking-widest text-brand-light">Employee</div>
-          <h1 className="text-2xl font-semibold text-white">{emp.name}</h1>
-          <p className="mt-1 text-sm text-slate-400">
-            {positionLabel(emp.position)} · {branchName}
-          </p>
-        </div>
+    <main className="mx-auto max-w-5xl space-y-5 px-6 py-6">
+      <div className="flex items-center justify-between px-1">
+        <Link href="/employees" className="text-sm text-slate-400 hover:text-brand">
+          ← All employees
+        </Link>
         <button onClick={() => setSettingsOpen(true)} className="btn-ghost">
           Settings
         </button>
       </div>
 
-      <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
-        <StatTile label="Items held" value={assigned.length} />
-        <StatTile label="Branch" value={branchName} />
-        <StatTile label="Position" value={positionLabel(emp.position)} />
-        <StatTile label="Status" value={statusLabel(emp.status)} />
-      </div>
+      {/* Profile hero */}
+      <section className="panel p-6">
+        <div className="flex items-center gap-4">
+          <span className="grid h-16 w-16 shrink-0 place-items-center rounded-full bg-brand/20 text-xl font-bold text-brand-light ring-1 ring-brand/30">
+            {initialsOf(emp.name)}
+          </span>
+          <div className="min-w-0">
+            <h1 className="truncate text-2xl font-semibold text-white">{emp.name}</h1>
+            <p className="mt-1 text-sm text-slate-400">
+              {positionLabel(emp.position)} · {branchName}
+            </p>
+          </div>
+          <span
+            className={`ml-auto shrink-0 rounded-full px-3 py-1 text-xs font-medium ring-1 ${
+              EMP_STATUS_STYLE[emp.status] ?? EMP_STATUS_STYLE.active
+            }`}
+          >
+            {statusLabel(emp.status)}
+          </span>
+        </div>
 
-      <section className="panel p-4">
-        <h2 className="mb-3 text-sm font-semibold text-slate-300">Profile</h2>
-        <dl className="grid grid-cols-2 gap-x-6 gap-y-2 text-sm sm:grid-cols-3">
-          <Row label="Phone" value={emp.phone ?? '—'} />
-          <Row label="Position" value={positionLabel(emp.position)} />
-          <Row label="Branch" value={branchName} />
-          <Row label="Status" value={statusLabel(emp.status)} />
+        <dl className="mt-6 grid grid-cols-2 gap-x-6 gap-y-4 border-t border-slate-800 pt-5 sm:grid-cols-3">
+          <Detail label="Email" value={emp.email ?? '—'} />
+          <Detail label="Phone" value={emp.phone ?? '—'} />
+          <Detail label="Position" value={positionLabel(emp.position)} />
+          <Detail label="Branch" value={branchName} />
+          <Detail label="Status" value={statusLabel(emp.status)} />
+          <Detail label="Items held" value={String(assigned.length)} />
         </dl>
       </section>
 
-      <section className="panel p-4">
-        <h2 className="mb-3 text-sm font-semibold text-slate-300">Assigned items ({assigned.length})</h2>
+      {/* Assigned items */}
+      <section className="space-y-3">
+        <h2 className="px-1 text-sm font-semibold text-slate-200">
+          Assigned items
+          <span className="ml-2 rounded-full bg-slate-800 px-2 py-0.5 text-xs font-medium text-slate-400">
+            {assigned.length}
+          </span>
+        </h2>
+
         {assigned.length === 0 ? (
-          <p className="text-sm text-slate-500">No items currently assigned.</p>
+          <div className="panel p-8 text-center text-sm text-slate-500">
+            No items currently assigned.
+          </div>
         ) : (
-          <ul className="divide-y divide-slate-800 rounded-md border border-slate-800">
-            {assigned.map((i) => (
-              <li key={i.id} className="flex items-center justify-between px-3 py-2 text-sm">
-                <span className="text-slate-300">
-                  {i.type} · {[i.properties.serial, i.properties.model].filter(Boolean).join(' ') || '—'}
-                </span>
-                <Link href={`/item/${i.id}`} className="text-slate-400 hover:text-brand">
-                  history →
-                </Link>
-              </li>
-            ))}
-          </ul>
+          <div className="grid gap-3">
+            {assigned.map((i) => {
+              const def = getItemType(i.type);
+              const fields = def?.fields ?? [];
+              return (
+                <div key={i.id} className="panel p-4">
+                  <div className="flex items-center gap-3">
+                    <span className="grid h-10 w-10 shrink-0 place-items-center rounded-lg bg-slate-800 text-lg">
+                      {ITEM_ICON[i.type] ?? '📦'}
+                    </span>
+                    <div className="min-w-0">
+                      <div className="font-semibold text-white">{def?.label ?? i.type}</div>
+                      <div className="truncate text-xs text-slate-500">{branchName}</div>
+                    </div>
+                    <div className="ml-auto flex shrink-0 items-center gap-3">
+                      <span
+                        className={`rounded-full px-2.5 py-0.5 text-xs font-medium ring-1 ${
+                          ITEM_STATUS_STYLE[i.status] ?? ITEM_STATUS_STYLE.retired
+                        }`}
+                      >
+                        {i.status.replace('_', ' ')}
+                      </span>
+                      <Link
+                        href={`/item/${i.id}`}
+                        className="text-xs font-medium text-slate-400 hover:text-brand"
+                      >
+                        History →
+                      </Link>
+                    </div>
+                  </div>
+
+                  <dl className="mt-4 grid grid-cols-2 gap-x-4 gap-y-3 border-t border-slate-800 pt-4 sm:grid-cols-3">
+                    {fields.map((f) => {
+                      const val = i.properties[f.key];
+                      const empty = val == null || val === '';
+                      if (f.hideWhenEmpty && empty) return null;
+                      return <Detail key={f.key} label={f.label} value={empty ? '—' : String(val)} />;
+                    })}
+                  </dl>
+                </div>
+              );
+            })}
+          </div>
         )}
       </section>
 
@@ -130,20 +215,11 @@ export default function EmployeePage() {
   );
 }
 
-function StatTile({ label, value }: { label: string; value: number | string }) {
+function Detail({ label, value }: { label: string; value: string }) {
   return (
-    <div className="panel p-4">
-      <div className="truncate text-2xl font-bold leading-none text-white">{value}</div>
-      <div className="mt-2 text-xs uppercase tracking-wide text-slate-400">{label}</div>
-    </div>
-  );
-}
-
-function Row({ label, value }: { label: string; value: string }) {
-  return (
-    <div className="flex justify-between border-b border-slate-800 py-1">
-      <dt className="text-slate-400">{label}</dt>
-      <dd className="font-medium text-slate-200">{value}</dd>
+    <div className="min-w-0">
+      <dt className="text-[11px] font-medium uppercase tracking-wide text-slate-500">{label}</dt>
+      <dd className="mt-0.5 break-words text-sm font-medium text-slate-100">{value}</dd>
     </div>
   );
 }
