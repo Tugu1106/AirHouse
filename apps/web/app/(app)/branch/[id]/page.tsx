@@ -2,8 +2,9 @@
 
 import { useEffect, useState } from 'react';
 import { useActionState } from 'react';
+import Link from 'next/link';
 import { useParams, useRouter } from 'next/navigation';
-import { EMPLOYEE_STATUSES } from '@airlink/core/types';
+import { EMPLOYEE_STATUSES, EMPLOYEE_POSITIONS } from '@airlink/core/types';
 import { useData } from '@/components/DataProvider';
 import { ItemsView, Dialog } from '@/components/ItemsView';
 import { EmployeeForm } from '@/components/EmployeesView';
@@ -19,6 +20,26 @@ import {
 } from '@/lib/actions';
 
 const statusLabel = (s: string) => EMPLOYEE_STATUSES.find((x) => x.key === s)?.label ?? s;
+const positionLabel = (p: string | null) =>
+  EMPLOYEE_POSITIONS.find((x) => x.key === p)?.label ?? p ?? '—';
+
+// Status → dot colour for the compact employee chips.
+const STATUS_DOT: Record<string, string> = {
+  active: 'bg-emerald-400',
+  newly_hired: 'bg-sky-400',
+  on_leave: 'bg-amber-400',
+  pregnancy_leave: 'bg-amber-400',
+  fired: 'bg-red-400',
+  resigned: 'bg-slate-500',
+};
+
+const initialsOf = (name: string) =>
+  name
+    .split(/\s+/)
+    .filter(Boolean)
+    .slice(0, 2)
+    .map((w) => w[0]?.toUpperCase())
+    .join('') || '?';
 
 export default function BranchPage() {
   const params = useParams<{ id: string }>();
@@ -81,40 +102,49 @@ export default function BranchPage() {
         <StatTile label="Distance from HQ" value={distanceLabel} />
       </div>
 
-      {/* breakdown + employees */}
-      <div className="grid gap-4 lg:grid-cols-2">
-        <Breakdown rows={breakdown} />
-        <section className="panel p-4">
-          <div className="mb-3 flex items-center justify-between">
-            <h2 className="text-sm font-semibold text-slate-300">Employees ({staff.length})</h2>
-            <button onClick={() => setAddEmpOpen(true)} className="btn-ghost">
-              + Add employee
-            </button>
-          </div>
-          {staff.length === 0 ? (
-            <p className="text-sm text-slate-500">No employees at this branch yet.</p>
-          ) : (
-            <ul className="space-y-2">
+      {/* Employees — priority #2, kept on top but compact (fixed height, scrolls) */}
+      <section className="panel p-4">
+        <div className="mb-3 flex items-center justify-between">
+          <h2 className="text-sm font-semibold text-slate-300">Employees ({staff.length})</h2>
+          <button onClick={() => setAddEmpOpen(true)} className="btn-ghost">
+            + Add employee
+          </button>
+        </div>
+        {staff.length === 0 ? (
+          <p className="text-sm text-slate-500">No employees at this branch yet.</p>
+        ) : (
+          <div className="max-h-72 overflow-y-auto pr-1">
+            <div className="grid grid-cols-1 gap-2 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
               {staff.map((e) => (
-                <li
+                <Link
                   key={e.id}
-                  className="flex items-center justify-between rounded-md border border-slate-800 bg-slate-800/40 px-3 py-2"
+                  href={`/employees/${e.id}`}
+                  className="flex items-center gap-2.5 rounded-lg border border-slate-800 bg-slate-800/40 px-3 py-2 transition hover:border-slate-700 hover:bg-slate-800/70"
                 >
-                  <div>
-                    <div className="text-sm font-medium text-white">{e.name}</div>
-                    <div className="text-xs text-slate-400">{e.position ?? '—'}</div>
+                  <span className="grid h-8 w-8 shrink-0 place-items-center rounded-full bg-slate-700 text-xs font-semibold text-slate-200">
+                    {initialsOf(e.name)}
+                  </span>
+                  <div className="min-w-0">
+                    <div className="truncate text-sm font-medium text-white">{e.name}</div>
+                    <div className="truncate text-xs text-slate-400">{positionLabel(e.position)}</div>
                   </div>
-                  <span className="text-xs text-slate-500">{statusLabel(e.status)}</span>
-                </li>
+                  <span
+                    title={statusLabel(e.status)}
+                    className={`ml-auto h-2 w-2 shrink-0 rounded-full ${
+                      STATUS_DOT[e.status] ?? 'bg-slate-500'
+                    }`}
+                  />
+                </Link>
               ))}
-            </ul>
-          )}
-        </section>
-      </div>
+            </div>
+          </div>
+        )}
+      </section>
 
-      {/* scoped item management */}
+      {/* Items — priority #1, the main area: quick breakdown then the full table */}
       <section className="space-y-3">
         <h2 className="text-sm font-semibold text-slate-300">Manage items</h2>
+        <Breakdown rows={breakdown} />
         <ItemsView scopeBranchId={id} />
       </section>
 
