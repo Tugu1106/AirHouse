@@ -22,11 +22,13 @@ import {
   deleteEmployee,
   provisionEmployeeLogin,
   resetEmployeeLogin,
+  deleteAllItems,
+  deleteAllEmployees,
   getItemType,
   type ItemStatus,
   type EmployeeStatus,
 } from '@airlink/core';
-import { requireActor } from './auth';
+import { getRole, requireActor } from './auth';
 import { createSupabaseServerClient } from './supabase/server';
 
 export type ActionResult = { ok: true; tempPassword?: string } | { ok: false; error: string };
@@ -118,6 +120,35 @@ export async function resetEmployeeLoginAction(id: string): Promise<ActionResult
   } catch (e) {
     return { ok: false, error: errMessage(e) };
   }
+}
+
+// --- testing: bulk wipes (admin only) -------------------------------------
+
+async function requireAdmin(): Promise<void> {
+  const role = await getRole();
+  if (role.role !== 'admin') throw new Error('Only the admin can do this.');
+}
+
+export async function deleteAllItemsAction(): Promise<ActionResult> {
+  try {
+    await requireAdmin();
+    await deleteAllItems();
+  } catch (e) {
+    return { ok: false, error: errMessage(e) };
+  }
+  revalidatePath('/dashboard');
+  revalidatePath('/branch', 'layout');
+  return { ok: true };
+}
+
+export async function deleteAllEmployeesAction(): Promise<ActionResult> {
+  try {
+    await requireAdmin();
+    await deleteAllEmployees();
+  } catch (e) {
+    return { ok: false, error: errMessage(e) };
+  }
+  return { ok: true };
 }
 
 // --- items ----------------------------------------------------------------

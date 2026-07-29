@@ -10,4 +10,5 @@ export * from './list';
 export * from './audit';
 export * from './branches';
 export * from './employees';
+export * from './admin';
 export { getServiceClient, configureCore } from './supabaseClient';

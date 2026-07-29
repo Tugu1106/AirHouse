@@ -3,6 +3,7 @@
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { useData } from './DataProvider';
+import { DevReset } from './DevReset';
 import { signOutAction } from '@/lib/actions';
 
 const NAV = [
@@ -50,6 +51,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
           </nav>
 
           <div className="ml-auto flex items-center gap-3 text-sm text-slate-400">
+            <DevReset />
             <button
               onClick={() => refresh()}
               disabled={refreshing}
