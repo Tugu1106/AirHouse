@@ -4,12 +4,17 @@ import { useState } from 'react';
 import Link from 'next/link';
 import { useParams, useRouter } from 'next/navigation';
 import { EMPLOYEE_STATUSES, EMPLOYEE_POSITIONS } from '@airlink/core/types';
+import type { Employee } from '@airlink/core';
 import { useData } from '@/components/DataProvider';
 import { Dialog } from '@/components/ItemsView';
 import { EmployeeForm } from '@/components/EmployeesView';
 import { ConfirmDialog } from '@/components/ConfirmDialog';
 import { BranchSkeleton } from '@/components/Skeleton';
-import { deleteEmployeeAction } from '@/lib/actions';
+import {
+  deleteEmployeeAction,
+  createEmployeeLoginAction,
+  resetEmployeeLoginAction,
+} from '@/lib/actions';
 
 const statusLabel = (s: string) => EMPLOYEE_STATUSES.find((x) => x.key === s)?.label ?? s;
 const positionLabel = (p: string | null) =>
@@ -106,6 +111,7 @@ export default function EmployeePage() {
                 setSettingsOpen(false);
               }}
             />
+            <LoginAccess emp={emp} onChanged={refresh} />
             <DangerZone
               hasItems={assigned.length}
               onDelete={async () => {
@@ -138,6 +144,77 @@ function Row({ label, value }: { label: string; value: string }) {
     <div className="flex justify-between border-b border-slate-800 py-1">
       <dt className="text-slate-400">{label}</dt>
       <dd className="font-medium text-slate-200">{value}</dd>
+    </div>
+  );
+}
+
+function LoginAccess({ emp, onChanged }: { emp: Employee; onChanged: () => Promise<void> }) {
+  const [temp, setTemp] = useState<string | null>(null);
+  const [err, setErr] = useState<string | null>(null);
+  const [busy, setBusy] = useState(false);
+  const [email, setEmail] = useState(emp.email ?? '');
+  const hasLogin = !!emp.user_id;
+
+  const run = async (fn: () => Promise<{ ok: boolean; tempPassword?: string; error?: string }>) => {
+    setBusy(true);
+    setErr(null);
+    const res = await fn();
+    setBusy(false);
+    if (res.ok) {
+      setTemp(res.tempPassword ?? null);
+      await onChanged();
+    } else {
+      setErr(res.error ?? 'Something went wrong');
+    }
+  };
+
+  return (
+    <div className="border-t border-slate-800 pt-4">
+      <h3 className="text-sm font-semibold text-slate-300">Login access</h3>
+      {temp ? (
+        <div className="mt-2 space-y-1">
+          <p className="text-xs text-slate-500">
+            Temporary password — share it; they set their own on first sign-in:
+          </p>
+          <div className="rounded-md border border-slate-700 bg-slate-800 px-3 py-2 font-mono text-brand-light">
+            {temp}
+          </div>
+        </div>
+      ) : hasLogin ? (
+        <>
+          <p className="mt-1 text-xs text-slate-500">
+            Login active for <span className="text-slate-300">{emp.email}</span>. Reset if they forgot it.
+          </p>
+          <button
+            onClick={() => run(() => resetEmployeeLoginAction(emp.id))}
+            disabled={busy}
+            className="btn-ghost mt-2 disabled:opacity-50"
+          >
+            {busy ? 'Working…' : 'Reset password'}
+          </button>
+        </>
+      ) : (
+        <>
+          <p className="mt-1 text-xs text-slate-500">
+            Give this employee a read-only login. Enter their work email:
+          </p>
+          <input
+            value={email}
+            onChange={(e) => setEmail(e.target.value)}
+            type="email"
+            placeholder="worker@airlink.mn"
+            className="field mt-2"
+          />
+          <button
+            onClick={() => run(() => createEmployeeLoginAction(emp.id, email.trim()))}
+            disabled={busy || !email.trim()}
+            className="btn-primary mt-2 disabled:opacity-50"
+          >
+            {busy ? 'Working…' : 'Create login'}
+          </button>
+        </>
+      )}
+      {err && <p className="mt-2 text-sm text-red-400">{err}</p>}
     </div>
   );
 }

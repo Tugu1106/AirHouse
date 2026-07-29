@@ -1,19 +1,14 @@
 import { NextResponse } from 'next/server';
-import { createSupabaseServerClient } from '@/lib/supabase/server';
+import { getRole } from '@/lib/auth';
 import { loadDataBundle } from '@/lib/data';
 
 export const dynamic = 'force-dynamic';
 
-// Client-side refresh endpoint. Called by the DataProvider after a write so the
-// UI updates without a full page navigation.
+// The full data bundle — admin only. Workers never load it (they have their own
+// scoped profile page); this is defense-in-depth.
 export async function GET() {
-  // Cookie-based session check (no network) — the middleware already gates
-  // access to authenticated users, this is just defense-in-depth.
-  const supabase = await createSupabaseServerClient();
-  const {
-    data: { session },
-  } = await supabase.auth.getSession();
-  if (!session) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  const role = await getRole();
+  if (role.role !== 'admin') return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
 
   const bundle = await loadDataBundle();
   return NextResponse.json(bundle);

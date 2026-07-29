@@ -1,5 +1,28 @@
 import { createSupabaseServerClient } from './supabase/server';
-import type { ActorContext } from '@airlink/core';
+import { findEmployeeByEmail, type ActorContext, type Employee } from '@airlink/core';
+
+const ADMIN_EMAIL = (process.env.ADMIN_EMAIL ?? '').toLowerCase();
+
+export type Role =
+  | { role: 'admin'; email: string }
+  | { role: 'worker'; email: string; employee: Employee }
+  | { role: 'none' };
+
+/** Determine the current user's role: the configured admin, a matched employee
+ *  (worker), or none. Used to gate admin vs read-only worker access. */
+export async function getRole(): Promise<Role> {
+  const supabase = await createSupabaseServerClient();
+  const {
+    data: { session },
+  } = await supabase.auth.getSession();
+  const email = session?.user?.email?.toLowerCase();
+  if (!email) return { role: 'none' };
+  // Fail-safe: no ADMIN_EMAIL configured → treat any login as admin.
+  if (!ADMIN_EMAIL || email === ADMIN_EMAIL) return { role: 'admin', email };
+  const employee = await findEmployeeByEmail(email);
+  if (employee) return { role: 'worker', email, employee };
+  return { role: 'none' };
+}
 
 /**
  * Returns the current admin user's id as an ActorContext for core calls, or

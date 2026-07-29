@@ -20,6 +20,8 @@ import {
   createEmployee,
   updateEmployee,
   deleteEmployee,
+  provisionEmployeeLogin,
+  resetEmployeeLogin,
   getItemType,
   type ItemStatus,
   type EmployeeStatus,
@@ -27,7 +29,7 @@ import {
 import { requireActor } from './auth';
 import { createSupabaseServerClient } from './supabase/server';
 
-export type ActionResult = { ok: true } | { ok: false; error: string };
+export type ActionResult = { ok: true; tempPassword?: string } | { ok: false; error: string };
 
 // --- helpers --------------------------------------------------------------
 
@@ -57,15 +59,65 @@ export async function signInAction(_prev: ActionResult | null, formData: FormDat
   const email = String(formData.get('email') ?? '');
   const password = String(formData.get('password') ?? '');
   const supabase = await createSupabaseServerClient();
-  const { error } = await supabase.auth.signInWithPassword({ email, password });
+  const { data, error } = await supabase.auth.signInWithPassword({ email, password });
   if (error) return { ok: false, error: error.message };
-  redirect('/map');
+
+  // Route by state/role: forced reset → admin → worker.
+  if (data.user?.user_metadata?.must_reset) redirect('/set-password');
+  const adminEmail = (process.env.ADMIN_EMAIL ?? '').toLowerCase();
+  const isAdmin = !adminEmail || data.user?.email?.toLowerCase() === adminEmail;
+  redirect(isAdmin ? '/map' : '/me');
+}
+
+export async function setPasswordAction(
+  _prev: ActionResult | null,
+  formData: FormData,
+): Promise<ActionResult> {
+  const password = String(formData.get('password') ?? '');
+  const confirm = String(formData.get('confirm') ?? '');
+  if (password.length < 8) return { ok: false, error: 'Password must be at least 8 characters.' };
+  if (password !== confirm) return { ok: false, error: 'Passwords do not match.' };
+
+  const supabase = await createSupabaseServerClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) return { ok: false, error: 'Not authenticated' };
+
+  const { error } = await supabase.auth.updateUser({ password, data: { must_reset: false } });
+  if (error) return { ok: false, error: error.message };
+
+  const adminEmail = (process.env.ADMIN_EMAIL ?? '').toLowerCase();
+  const isAdmin = !adminEmail || user.email?.toLowerCase() === adminEmail;
+  redirect(isAdmin ? '/map' : '/me');
 }
 
 export async function signOutAction(): Promise<void> {
   const supabase = await createSupabaseServerClient();
   await supabase.auth.signOut();
   redirect('/login');
+}
+
+// --- employee login provisioning (admin) ----------------------------------
+
+export async function createEmployeeLoginAction(id: string, email: string): Promise<ActionResult> {
+  try {
+    await requireActor();
+    const tempPassword = await provisionEmployeeLogin(id, email.trim());
+    return { ok: true, tempPassword };
+  } catch (e) {
+    return { ok: false, error: errMessage(e) };
+  }
+}
+
+export async function resetEmployeeLoginAction(id: string): Promise<ActionResult> {
+  try {
+    await requireActor();
+    const tempPassword = await resetEmployeeLogin(id);
+    return { ok: true, tempPassword };
+  } catch (e) {
+    return { ok: false, error: errMessage(e) };
+  }
 }
 
 // --- items ----------------------------------------------------------------
@@ -229,19 +281,24 @@ export async function createEmployeeAction(_prev: ActionResult | null, formData:
     await requireActor();
     const name = String(formData.get('name') ?? '').trim();
     const branchId = String(formData.get('branch_id') ?? '') || null;
+    const email = String(formData.get('email') ?? '').trim() || null;
     if (!name) return { ok: false, error: 'Employee name is required' };
-    await createEmployee({
+    const emp = await createEmployee({
       name,
       branchId,
       phone: String(formData.get('phone') ?? '').trim() || null,
       position: String(formData.get('position') ?? '').trim() || null,
       status: (String(formData.get('status') ?? '') as EmployeeStatus) || undefined,
+      email,
     });
+    // If an email was given, provision their read-only login and surface the temp password.
+    if (email) {
+      const tempPassword = await provisionEmployeeLogin(emp.id, email);
+      return { ok: true, tempPassword };
+    }
   } catch (e) {
     return { ok: false, error: errMessage(e) };
   }
-  revalidatePath('/dashboard');
-  revalidatePath('/branch', 'layout');
   return { ok: true };
 }
 

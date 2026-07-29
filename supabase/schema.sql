@@ -28,9 +28,13 @@ create table if not exists employees (
   phone      text,
   position   text,
   status     text not null default 'active',
+  email      text,
+  user_id    uuid,
   created_at timestamptz not null default now()
 );
 create index if not exists employees_branch_id_idx on employees(branch_id);
+create unique index if not exists employees_email_unique
+  on employees (lower(email)) where email is not null;
 
 create table if not exists items (
   id          uuid primary key default gen_random_uuid(),

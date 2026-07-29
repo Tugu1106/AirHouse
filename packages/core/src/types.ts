@@ -55,6 +55,10 @@ export interface Employee {
   phone: string | null;
   position: string | null;
   status: EmployeeStatus;
+  /** Work email used for self-service login (null = no login). */
+  email: string | null;
+  /** Supabase Auth user id, set once their login is provisioned. */
+  user_id: string | null;
   created_at: string;
 }
 

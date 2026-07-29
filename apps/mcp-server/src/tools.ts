@@ -17,6 +17,7 @@ import {
   setBranchAsHq,
   createEmployee,
   updateEmployee,
+  provisionEmployeeLogin,
   findBranchByName,
   findEmployeeByName,
   EMPLOYEE_STATUSES,
@@ -233,7 +234,7 @@ export const TOOLS: ToolDef[] = [
   {
     name: 'add_employee',
     description:
-      'Create an employee. name is required; branch (by name), phone, position and status are optional.',
+      'Create an employee. name is required; branch (by name), phone, position, status are optional. If email is given, a read-only login is created and a temporary password is returned to share with them.',
     inputSchema: {
       type: 'object',
       properties: {
@@ -241,6 +242,7 @@ export const TOOLS: ToolDef[] = [
         branch: { type: 'string', description: 'Branch name the employee works at.' },
         phone: { type: 'string', description: 'Mobile phone number.' },
         position: { type: 'string', description: 'Job title / position.' },
+        email: { type: 'string', description: 'Work email — enables their read-only login.' },
         status: {
           type: 'string',
           enum: EMPLOYEE_STATUS_KEYS,
@@ -251,14 +253,21 @@ export const TOOLS: ToolDef[] = [
     },
     handler: async (args) => {
       const branchId = str(args.branch) ? (await findBranchByName(str(args.branch))).id : null;
+      const email = str(args.email) || null;
       const emp = await createEmployee({
         name: str(args.name),
         branchId,
         phone: str(args.phone) || null,
         position: str(args.position) || null,
         status: (str(args.status) as EmployeeStatus) || undefined,
+        email,
       });
-      return `Added employee ${emp.name} (id: ${emp.id})${str(args.branch) ? ` at ${str(args.branch)}` : ''}.`;
+      let loginNote = '';
+      if (email) {
+        const temp = await provisionEmployeeLogin(emp.id, email);
+        loginNote = ` A read-only login was created — temporary password: ${temp}. Share the site URL + this password; they set their own on first sign-in.`;
+      }
+      return `Added employee ${emp.name} (id: ${emp.id})${str(args.branch) ? ` at ${str(args.branch)}` : ''}.${loginNote}`;
     },
   },
   {

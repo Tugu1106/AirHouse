@@ -40,18 +40,36 @@ export async function updateSession(request: NextRequest) {
 
   const path = request.nextUrl.pathname;
   const isAuthRoute = path.startsWith('/login');
-
-  if (!user && !isAuthRoute) {
+  const redirect = (to: string) => {
     const url = request.nextUrl.clone();
-    url.pathname = '/login';
+    url.pathname = to;
+    url.search = '';
     return NextResponse.redirect(url);
+  };
+
+  // Not logged in → only the login page is reachable.
+  if (!user) {
+    return isAuthRoute ? response : redirect('/login');
   }
 
-  if (user && isAuthRoute) {
-    const url = request.nextUrl.clone();
-    url.pathname = '/map';
-    return NextResponse.redirect(url);
+  const adminEmail = (process.env.ADMIN_EMAIL ?? '').toLowerCase();
+  // Fail-safe: until ADMIN_EMAIL is configured, every login is treated as admin
+  // (so a deploy without it set can't lock the admin out). Worker gating turns
+  // on only once ADMIN_EMAIL is set.
+  const isAdmin = !adminEmail || user.email?.toLowerCase() === adminEmail;
+  const mustReset = !!user.user_metadata?.must_reset;
+
+  // Forced password change on first login (temp password).
+  if (mustReset && path !== '/set-password') return redirect('/set-password');
+  if (!mustReset && path === '/set-password') return redirect(isAdmin ? '/map' : '/me');
+
+  if (isAdmin) {
+    // Admin: full access; bounce off the login page.
+    return isAuthRoute ? redirect('/map') : response;
   }
 
+  // Worker: read-only, locked to their own profile.
+  const workerAllowed = path === '/me' || path === '/set-password';
+  if (!workerAllowed) return redirect('/me');
   return response;
 }

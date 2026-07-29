@@ -172,8 +172,12 @@ export function EmployeeForm({
 }) {
   const action = emp ? updateEmployeeAction : createEmployeeAction;
   const [state, formAction] = useActionState<ActionResult | null, FormData>(action, null);
+  const [createdTemp, setCreatedTemp] = useState<string | null>(null);
   useEffect(() => {
-    if (state?.ok) onDone();
+    if (state?.ok) {
+      if (state.tempPassword) setCreatedTemp(state.tempPassword);
+      else onDone();
+    }
   }, [state, onDone]);
 
   // Match the stored position to a known option by key OR label (case-insensitive),
@@ -185,6 +189,28 @@ export function EmployeeForm({
   );
   const positionValue = matchedPos?.key ?? currentPos;
 
+  if (createdTemp) {
+    return (
+      <div className="space-y-4">
+        <p className="text-sm text-slate-300">
+          Employee added and their login is ready. Share this <b>temporary password</b> with them —
+          they'll set their own on first sign-in:
+        </p>
+        <div className="rounded-md border border-slate-700 bg-slate-800 px-3 py-2 font-mono text-lg tracking-wide text-brand-light">
+          {createdTemp}
+        </div>
+        <p className="text-xs text-slate-500">
+          They sign in at this site with their work email + this password.
+        </p>
+        <div className="flex justify-end">
+          <button onClick={onDone} className="btn-primary">
+            Done
+          </button>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <form action={formAction} className="space-y-4">
       {emp && <input type="hidden" name="id" value={emp.id} />}
@@ -193,6 +219,14 @@ export function EmployeeForm({
           <label className="block text-sm font-medium text-slate-300">Name *</label>
           <input name="name" required defaultValue={emp?.name ?? ''} className="mt-1 w-full rounded-md border border-slate-700 bg-slate-800 text-slate-100 placeholder-slate-500 px-3 py-2 text-sm" />
         </div>
+        {!emp && (
+          <div className="col-span-2">
+            <label className="block text-sm font-medium text-slate-300">
+              Work email <span className="font-normal text-slate-500">(optional — enables their login)</span>
+            </label>
+            <input name="email" type="email" placeholder="worker@airlink.mn" className="mt-1 w-full rounded-md border border-slate-700 bg-slate-800 text-slate-100 placeholder-slate-500 px-3 py-2 text-sm" />
+          </div>
+        )}
         <div>
           <label className="block text-sm font-medium text-slate-300">Phone</label>
           <input name="phone" defaultValue={emp?.phone ?? ''} className="mt-1 w-full rounded-md border border-slate-700 bg-slate-800 text-slate-100 placeholder-slate-500 px-3 py-2 text-sm" />
