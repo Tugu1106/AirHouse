@@ -169,7 +169,7 @@ export async function deleteEmployee(id: UUID, ctx: ActorContext): Promise<void>
     .is('deleted_at', null);
   if (itemsErr) throw new Error(itemsErr.message);
   for (const it of (items ?? []) as { id: UUID }[]) {
-    await transferItem(it.id, { toEmployeeId: null }, ctx);
+    await transferItem(it.id, { toEmployeeId: null, reason: 'employee_deleted' }, ctx);
   }
 
   // Revoke their login (best-effort — the row stays for history).

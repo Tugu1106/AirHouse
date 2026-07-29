@@ -121,6 +121,12 @@ export default async function ItemHistoryPage({ params }: { params: Promise<{ id
                         (entry.from_employee_id || entry.to_employee_id) && (
                           <div className="text-sm text-slate-400">
                             {assigneeText(entry.from_employee_id, entry.to_employee_id, empName)}
+                            {(entry.diff as { reason?: string } | null)?.reason ===
+                              'employee_deleted' && (
+                              <span className="ml-2 rounded bg-red-500/15 px-1.5 py-0.5 text-[11px] font-medium text-red-300 ring-1 ring-red-500/30">
+                                employee deleted
+                              </span>
+                            )}
                           </div>
                         )}
                       {entry.action === 'transfer' &&

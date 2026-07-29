@@ -12,6 +12,8 @@ export interface TransferItemInput {
   toEmployeeId?: UUID | null;
   /** New branch. Omit to keep the item at its current branch. */
   toBranchId?: UUID;
+  /** Why this transfer happened (e.g. 'employee_deleted'), recorded in history. */
+  reason?: string;
 }
 
 export async function transferItem(
@@ -52,6 +54,7 @@ export async function transferItem(
     to_branch_id: changingBranch ? after.branch_id : null,
     from_employee_id: changingEmployee ? before.assigned_to : null,
     to_employee_id: changingEmployee ? after.assigned_to : null,
+    diff: input.reason ? { reason: input.reason } : null,
   });
   return after;
 }
