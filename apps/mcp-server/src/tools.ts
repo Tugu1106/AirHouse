@@ -18,6 +18,7 @@ import {
   createEmployee,
   updateEmployee,
   provisionEmployeeLogin,
+  resetEmployeeLogin,
   findBranchByName,
   findEmployeeByName,
   EMPLOYEE_STATUSES,
@@ -273,7 +274,7 @@ export const TOOLS: ToolDef[] = [
   {
     name: 'update_employee',
     description:
-      'Update an existing employee (found by name). Change their status (e.g. fired, on_leave), phone, position, or branch.',
+      'Update an existing employee (found by name). Change name, status (e.g. fired, on_leave), phone, position, or branch. Passing an email creates a read-only login for them (if they do not have one yet) and returns a temporary password.',
     inputSchema: {
       type: 'object',
       properties: {
@@ -283,6 +284,10 @@ export const TOOLS: ToolDef[] = [
         phone: { type: 'string' },
         position: { type: 'string' },
         branch: { type: 'string', description: 'New branch name.' },
+        email: {
+          type: 'string',
+          description: 'Work email — creates their read-only login if they have none yet.',
+        },
       },
       required: ['name'],
     },
@@ -301,7 +306,33 @@ export const TOOLS: ToolDef[] = [
       if (str(args.position)) patch.position = str(args.position);
       if (str(args.branch)) patch.branchId = (await findBranchByName(str(args.branch))).id;
       await updateEmployee(emp.id, patch);
-      return `Updated employee ${emp.name}.`;
+
+      let loginNote = '';
+      const email = str(args.email);
+      if (email) {
+        if (emp.user_id) {
+          loginNote = ` (${emp.name} already has a login — use reset_employee_login for a new temp password.)`;
+        } else {
+          const temp = await provisionEmployeeLogin(emp.id, email);
+          loginNote = ` A read-only login was created — temporary password: ${temp}. Share the site URL + this password; they set their own on first sign-in.`;
+        }
+      }
+      return `Updated employee ${emp.name}.${loginNote}`;
+    },
+  },
+  {
+    name: 'reset_employee_login',
+    description:
+      'Reset an existing employee login to a new temporary password (found by name). They must change it on next sign-in.',
+    inputSchema: {
+      type: 'object',
+      properties: { name: { type: 'string', description: 'Employee name.' } },
+      required: ['name'],
+    },
+    handler: async (args) => {
+      const emp = await findEmployeeByName(str(args.name));
+      const temp = await resetEmployeeLogin(emp.id);
+      return `Reset login for ${emp.name}. New temporary password: ${temp}. Share it; they set their own on next sign-in.`;
     },
   },
   {
