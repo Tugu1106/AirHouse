@@ -65,7 +65,8 @@ export const TOOLS: ToolDef[] = [
   },
   {
     name: 'list_employees',
-    description: 'List employees, optionally filtered by branch name.',
+    description:
+      'List employees with their branch, position, phone, and status, optionally filtered by branch name.',
     inputSchema: {
       type: 'object',
       properties: {
@@ -75,9 +76,19 @@ export const TOOLS: ToolDef[] = [
     handler: async (args) => {
       let branchId: string | undefined;
       if (str(args.branch)) branchId = (await findBranchByName(str(args.branch))).id;
-      const emps = await listEmployees(branchId);
+      const [emps, branches] = await Promise.all([listEmployees(branchId), listBranches()]);
       if (emps.length === 0) return 'No employees found.';
-      return emps.map((e) => `- ${e.name} (id: ${e.id})`).join('\n');
+      const branchNames = new Map(branches.map((branch) => [branch.id, branch.name]));
+      return emps
+        .map(
+          (employee) =>
+            `- ${employee.name} (id: ${employee.id}) · branch: ${
+              employee.branch_id ? (branchNames.get(employee.branch_id) ?? 'Unknown') : 'Unassigned'
+            } · position: ${employee.position ?? 'Not set'} · phone: ${
+              employee.phone ?? 'Not set'
+            } · status: ${employee.status}`,
+        )
+        .join('\n');
     },
   },
   {
