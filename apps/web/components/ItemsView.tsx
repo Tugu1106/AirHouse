@@ -26,10 +26,9 @@ type Modal =
 
 const typeLabel = (key: string) => getItemType(key)?.label ?? key;
 
-function propSummary(item: ItemWithRelations): string {
-  const p = item.properties ?? {};
-  const parts = [p.system_name, p.serial, p.model, p.subtype, p.cable_type].filter(Boolean);
-  return parts.join(' · ') || '—';
+function propertyValue(item: ItemWithRelations, key: string): string {
+  const value = item.properties?.[key];
+  return value == null || value === '' ? '—' : String(value);
 }
 
 export function ItemsView({ scopeBranchId }: { scopeBranchId?: string }) {
@@ -82,7 +81,7 @@ export function ItemsView({ scopeBranchId }: { scopeBranchId?: string }) {
     }
   }
 
-  const cols = scopeBranchId ? 5 : 6;
+  const cols = scopeBranchId ? 6 : 7;
 
   return (
     <div className="space-y-4">
@@ -156,7 +155,8 @@ export function ItemsView({ scopeBranchId }: { scopeBranchId?: string }) {
           <thead className="bg-slate-800/50 text-left text-xs uppercase tracking-wide text-slate-400">
             <tr>
               <th className="px-4 py-3">Type</th>
-              <th className="px-4 py-3">Details</th>
+              <th className="px-4 py-3">System name</th>
+              <th className="px-4 py-3">Model name</th>
               {!scopeBranchId && <th className="px-4 py-3">Branch</th>}
               <th className="px-4 py-3">Assigned to</th>
               <th className="px-4 py-3">Status</th>
@@ -179,7 +179,8 @@ export function ItemsView({ scopeBranchId }: { scopeBranchId?: string }) {
                     <span className="ml-2 rounded bg-red-100 px-1.5 py-0.5 text-xs text-red-700">deleted</span>
                   )}
                 </td>
-                <td className="px-4 py-3 text-slate-400">{propSummary(item)}</td>
+                <td className="px-4 py-3 text-slate-400">{propertyValue(item, 'system_name')}</td>
+                <td className="px-4 py-3 text-slate-400">{propertyValue(item, 'model')}</td>
                 {!scopeBranchId && <td className="px-4 py-3 text-slate-400">{item.branch?.name ?? '—'}</td>}
                 <td className="px-4 py-3 text-slate-400">{item.assignee?.name ?? 'Unassigned'}</td>
                 <td className="px-4 py-3">
