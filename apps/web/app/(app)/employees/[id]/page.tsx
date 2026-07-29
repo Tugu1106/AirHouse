@@ -9,6 +9,7 @@ import { useData } from '@/components/DataProvider';
 import { Dialog } from '@/components/ItemsView';
 import { EmployeeForm } from '@/components/EmployeesView';
 import { ConfirmDialog } from '@/components/ConfirmDialog';
+import { BackButton } from '@/components/BackButton';
 import { BranchSkeleton } from '@/components/Skeleton';
 import {
   deleteEmployeeAction,
@@ -86,9 +87,7 @@ export default function EmployeePage() {
   return (
     <main className="mx-auto max-w-5xl space-y-5 px-6 py-6">
       <div className="flex items-center justify-between px-1">
-        <Link href="/employees" className="text-sm text-slate-400 hover:text-brand">
-          ← All employees
-        </Link>
+        <BackButton />
         <button onClick={() => setSettingsOpen(true)} className="btn-ghost">
           Settings
         </button>
