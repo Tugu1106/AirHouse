@@ -6,6 +6,8 @@ import { useParams, useRouter } from 'next/navigation';
 import { EMPLOYEE_STATUSES } from '@airlink/core/types';
 import { useData } from '@/components/DataProvider';
 import { ItemsView, Dialog } from '@/components/ItemsView';
+import { EmployeeForm } from '@/components/EmployeesView';
+import { ConfirmDialog } from '@/components/ConfirmDialog';
 import { SubmitButton } from '@/components/SubmitButton';
 import { branchStats, distanceKm, inMongolia, type Row } from '@/lib/branchStats';
 import { BranchSkeleton } from '@/components/Skeleton';
@@ -23,6 +25,7 @@ export default function BranchPage() {
   const router = useRouter();
   const { branches, items, employees, refresh, loading } = useData();
   const [settingsOpen, setSettingsOpen] = useState(false);
+  const [addEmpOpen, setAddEmpOpen] = useState(false);
 
   const id = params.id;
   const branch = branches.find((b) => b.id === id);
@@ -82,7 +85,12 @@ export default function BranchPage() {
       <div className="grid gap-4 lg:grid-cols-2">
         <Breakdown rows={breakdown} />
         <section className="panel p-4">
-          <h2 className="mb-3 text-sm font-semibold text-slate-300">Employees ({staff.length})</h2>
+          <div className="mb-3 flex items-center justify-between">
+            <h2 className="text-sm font-semibold text-slate-300">Employees ({staff.length})</h2>
+            <button onClick={() => setAddEmpOpen(true)} className="btn-ghost">
+              + Add employee
+            </button>
+          </div>
           {staff.length === 0 ? (
             <p className="text-sm text-slate-500">No employees at this branch yet.</p>
           ) : (
@@ -109,6 +117,19 @@ export default function BranchPage() {
         <h2 className="text-sm font-semibold text-slate-300">Manage items</h2>
         <ItemsView scopeBranchId={id} />
       </section>
+
+      {addEmpOpen && (
+        <Dialog title="Add employee" onClose={() => setAddEmpOpen(false)}>
+          <EmployeeForm
+            branches={branches}
+            defaultBranchId={id}
+            onDone={async () => {
+              await refresh();
+              setAddEmpOpen(false);
+            }}
+          />
+        </Dialog>
+      )}
 
       {settingsOpen && (
         <Dialog title="Branch settings" onClose={() => setSettingsOpen(false)}>
@@ -192,7 +213,7 @@ function BranchSettings({
 }) {
   const [state, formAction] = useActionState<ActionResult | null, FormData>(renameBranchAction, null);
   const [deleteErr, setDeleteErr] = useState<string | null>(null);
-  const [deleting, setDeleting] = useState(false);
+  const [confirmDelete, setConfirmDelete] = useState(false);
   const [settingHq, setSettingHq] = useState(false);
 
   const makeCentral = async () => {
@@ -207,15 +228,6 @@ function BranchSettings({
   }, [state, onRenamed]);
 
   const canDelete = blockers.items === 0 && blockers.staff === 0;
-
-  const doDelete = async () => {
-    setDeleting(true);
-    setDeleteErr(null);
-    const res = await deleteBranchAction(branchId);
-    setDeleting(false);
-    if (res.ok) onDeleted();
-    else setDeleteErr(res.error);
-  };
 
   return (
     <div className="space-y-6">
@@ -271,13 +283,31 @@ function BranchSettings({
         )}
         {deleteErr && <p className="mt-2 text-sm text-red-400">{deleteErr}</p>}
         <button
-          onClick={doDelete}
-          disabled={!canDelete || deleting}
+          onClick={() => setConfirmDelete(true)}
+          disabled={!canDelete}
           className="mt-3 rounded-md border border-red-800 bg-red-950/40 px-4 py-2 text-sm font-medium text-red-300 hover:bg-red-950/70 disabled:cursor-not-allowed disabled:opacity-50"
         >
-          {deleting ? 'Deleting…' : 'Delete branch'}
+          Delete branch
         </button>
       </div>
+
+      {confirmDelete && (
+        <ConfirmDialog
+          title="Delete branch?"
+          message="This permanently deletes the branch. This cannot be undone."
+          confirmLabel="Yes, delete"
+          danger
+          onCancel={() => setConfirmDelete(false)}
+          onConfirm={async () => {
+            const res = await deleteBranchAction(branchId);
+            if (res.ok) onDeleted();
+            else {
+              setDeleteErr(res.error);
+              setConfirmDelete(false);
+            }
+          }}
+        />
+      )}
     </div>
   );
 }

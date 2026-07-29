@@ -16,6 +16,7 @@ import {
   type ActionResult,
 } from '@/lib/actions';
 import { SubmitButton } from './SubmitButton';
+import { ConfirmDialog } from './ConfirmDialog';
 
 type Modal =
   | { mode: 'add' }
@@ -35,6 +36,7 @@ export function ItemsView({ scopeBranchId }: { scopeBranchId?: string }) {
   const { items, branches, employees, refresh } = useData();
   const [modal, setModal] = useState<Modal>(null);
   const [busyId, setBusyId] = useState<string | null>(null);
+  const [confirmDelete, setConfirmDelete] = useState<ItemWithRelations | null>(null);
 
   const [search, setSearch] = useState('');
   const [type, setType] = useState('');
@@ -197,9 +199,8 @@ export function ItemsView({ scopeBranchId }: { scopeBranchId?: string }) {
                           Transfer
                         </button>
                         <button
-                          disabled={busyId === item.id}
-                          onClick={() => runRowAction(item.id, softDeleteItemAction)}
-                          className="text-red-500 hover:text-red-700 disabled:opacity-50"
+                          onClick={() => setConfirmDelete(item)}
+                          className="text-red-500 hover:text-red-700"
                         >
                           Delete
                         </button>
@@ -257,6 +258,21 @@ export function ItemsView({ scopeBranchId }: { scopeBranchId?: string }) {
             }}
           />
         </Dialog>
+      )}
+
+      {confirmDelete && (
+        <ConfirmDialog
+          title="Delete item?"
+          message="Move this item to deleted? It stays in history and can be restored."
+          confirmLabel="Yes, delete"
+          danger
+          onCancel={() => setConfirmDelete(null)}
+          onConfirm={async () => {
+            await softDeleteItemAction(confirmDelete.id);
+            await refresh();
+            setConfirmDelete(null);
+          }}
+        />
       )}
     </div>
   );

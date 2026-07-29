@@ -7,6 +7,7 @@ import { EMPLOYEE_STATUSES, EMPLOYEE_POSITIONS } from '@airlink/core/types';
 import { useData } from '@/components/DataProvider';
 import { Dialog } from '@/components/ItemsView';
 import { EmployeeForm } from '@/components/EmployeesView';
+import { ConfirmDialog } from '@/components/ConfirmDialog';
 import { BranchSkeleton } from '@/components/Skeleton';
 import { deleteEmployeeAction } from '@/lib/actions';
 
@@ -142,7 +143,7 @@ function Row({ label, value }: { label: string; value: string }) {
 }
 
 function DangerZone({ hasItems, onDelete }: { hasItems: number; onDelete: () => Promise<boolean> }) {
-  const [busy, setBusy] = useState(false);
+  const [confirm, setConfirm] = useState(false);
   const [err, setErr] = useState<string | null>(null);
   return (
     <div className="border-t border-slate-800 pt-4">
@@ -154,20 +155,32 @@ function DangerZone({ hasItems, onDelete }: { hasItems: number; onDelete: () => 
       </p>
       {err && <p className="mt-2 text-sm text-red-400">{err}</p>}
       <button
-        onClick={async () => {
-          setBusy(true);
-          setErr(null);
-          const ok = await onDelete();
-          if (!ok) {
-            setErr('Could not delete this employee.');
-            setBusy(false);
-          }
-        }}
-        disabled={busy}
-        className="mt-3 rounded-md border border-red-800 bg-red-950/40 px-4 py-2 text-sm font-medium text-red-300 hover:bg-red-950/70 disabled:opacity-50"
+        onClick={() => setConfirm(true)}
+        className="mt-3 rounded-md border border-red-800 bg-red-950/40 px-4 py-2 text-sm font-medium text-red-300 hover:bg-red-950/70"
       >
-        {busy ? 'Deleting…' : 'Delete employee'}
+        Delete employee
       </button>
+
+      {confirm && (
+        <ConfirmDialog
+          title="Delete employee?"
+          message={
+            hasItems > 0
+              ? `This permanently deletes the employee; their ${hasItems} assigned item(s) will be unassigned. This cannot be undone.`
+              : 'This permanently deletes the employee. This cannot be undone.'
+          }
+          confirmLabel="Yes, delete"
+          danger
+          onCancel={() => setConfirm(false)}
+          onConfirm={async () => {
+            const ok = await onDelete();
+            if (!ok) {
+              setErr('Could not delete this employee.');
+              setConfirm(false);
+            }
+          }}
+        />
+      )}
     </div>
   );
 }

@@ -162,10 +162,12 @@ export function EmployeesView() {
 export function EmployeeForm({
   branches,
   emp,
+  defaultBranchId,
   onDone,
 }: {
   branches: { id: string; name: string }[];
   emp?: Employee;
+  defaultBranchId?: string | null;
   onDone: () => void;
 }) {
   const action = emp ? updateEmployeeAction : createEmployeeAction;
@@ -209,7 +211,7 @@ export function EmployeeForm({
         </div>
         <div>
           <label className="block text-sm font-medium text-slate-300">Branch</label>
-          <select name="branch_id" defaultValue={emp?.branch_id ?? ''} className="mt-1 w-full rounded-md border border-slate-700 bg-slate-800 text-slate-100 placeholder-slate-500 px-3 py-2 text-sm">
+          <select name="branch_id" defaultValue={emp?.branch_id ?? defaultBranchId ?? ''} className="mt-1 w-full rounded-md border border-slate-700 bg-slate-800 text-slate-100 placeholder-slate-500 px-3 py-2 text-sm">
             <option value="">— none —</option>
             {branches.map((b) => (
               <option key={b.id} value={b.id}>
