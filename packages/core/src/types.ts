@@ -59,6 +59,8 @@ export interface Employee {
   email: string | null;
   /** Supabase Auth user id, set once their login is provisioned. */
   user_id: string | null;
+  /** Soft-delete marker; null = active. Kept so item history resolves their name. */
+  deleted_at: string | null;
   created_at: string;
 }
 

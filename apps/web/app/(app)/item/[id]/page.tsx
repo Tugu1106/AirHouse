@@ -20,7 +20,7 @@ export default async function ItemHistoryPage({ params }: { params: Promise<{ id
   const [audit, branches, employees] = await Promise.all([
     listAuditForItem(id),
     listBranches(),
-    listEmployees(),
+    listEmployees(undefined, true), // include deleted so history resolves their name
   ]);
 
   const branchName = (bid: string | null) => branches.find((b) => b.id === bid)?.name ?? '—';
@@ -64,18 +64,15 @@ export default async function ItemHistoryPage({ params }: { params: Promise<{ id
               <div className="mt-1 h-2 w-2 shrink-0 rounded-full bg-brand" />
               <div className="text-sm">
                 <div className="font-medium text-slate-200">{describe(entry.action)}</div>
-                {entry.action === 'transfer' && (
+                {(entry.action === 'transfer' || entry.action === 'create') &&
+                  (entry.from_employee_id || entry.to_employee_id) && (
+                    <div className="text-slate-400">
+                      {assigneeText(entry.from_employee_id, entry.to_employee_id, empName)}
+                    </div>
+                  )}
+                {entry.action === 'transfer' && (entry.from_branch_id || entry.to_branch_id) && (
                   <div className="text-slate-400">
-                    {entry.from_employee_id || entry.to_employee_id ? (
-                      <span>
-                        Assignee: {empName(entry.from_employee_id)} → {empName(entry.to_employee_id)}.{' '}
-                      </span>
-                    ) : null}
-                    {entry.from_branch_id || entry.to_branch_id ? (
-                      <span>
-                        Branch: {branchName(entry.from_branch_id)} → {branchName(entry.to_branch_id)}.
-                      </span>
-                    ) : null}
+                    Branch: {branchName(entry.from_branch_id)} → {branchName(entry.to_branch_id)}.
                   </div>
                 )}
                 {entry.diff && entry.action === 'update' && (
@@ -91,6 +88,17 @@ export default async function ItemHistoryPage({ params }: { params: Promise<{ id
       </div>
     </main>
   );
+}
+
+function assigneeText(
+  from: string | null,
+  to: string | null,
+  name: (id: string | null) => string,
+): string {
+  if (!from && to) return `Assigned to ${name(to)}`;
+  if (from && !to) return `Unassigned from ${name(from)}`;
+  if (from && to) return `Reassigned: ${name(from)} → ${name(to)}`;
+  return '';
 }
 
 function describe(action: string): string {

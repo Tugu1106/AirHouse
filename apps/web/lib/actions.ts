@@ -304,8 +304,8 @@ export async function createEmployeeAction(_prev: ActionResult | null, formData:
 
 export async function deleteEmployeeAction(id: string): Promise<ActionResult> {
   try {
-    await requireActor();
-    await deleteEmployee(id);
+    const ctx = await requireActor();
+    await deleteEmployee(id, ctx);
   } catch (e) {
     return { ok: false, error: errMessage(e) };
   }

@@ -30,6 +30,7 @@ create table if not exists employees (
   status     text not null default 'active',
   email      text,
   user_id    uuid,
+  deleted_at timestamptz,
   created_at timestamptz not null default now()
 );
 create index if not exists employees_branch_id_idx on employees(branch_id);

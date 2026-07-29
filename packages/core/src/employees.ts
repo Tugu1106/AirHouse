@@ -1,11 +1,13 @@
 // Employee read/create helpers.
 
 import { getServiceClient } from './supabaseClient';
-import type { Employee, EmployeeStatus, UUID } from './types';
+import { transferItem } from './transfers';
+import type { ActorContext, Employee, EmployeeStatus, UUID } from './types';
 
-export async function listEmployees(branchId?: UUID): Promise<Employee[]> {
+export async function listEmployees(branchId?: UUID, includeDeleted = false): Promise<Employee[]> {
   const client = getServiceClient();
   let query = client.from('employees').select('*').order('name');
+  if (!includeDeleted) query = query.is('deleted_at', null);
   if (branchId) query = query.eq('branch_id', branchId);
   const { data, error } = await query;
   if (error) throw new Error(error.message);
@@ -18,7 +20,7 @@ export async function listEmployees(branchId?: UUID): Promise<Employee[]> {
  */
 export async function findEmployeeByName(name: string, branchId?: UUID): Promise<Employee> {
   const client = getServiceClient();
-  let query = client.from('employees').select('*').ilike('name', name.trim());
+  let query = client.from('employees').select('*').ilike('name', name.trim()).is('deleted_at', null);
   if (branchId) query = query.eq('branch_id', branchId);
   const { data, error } = await query;
   if (error) throw new Error(error.message);
@@ -39,6 +41,7 @@ export async function findEmployeeByEmail(email: string): Promise<Employee | nul
     .from('employees')
     .select('*')
     .ilike('email', email.trim())
+    .is('deleted_at', null)
     .maybeSingle();
   if (error) throw new Error(error.message);
   return (data as Employee) ?? null;
@@ -143,17 +146,46 @@ export interface UpdateEmployeeInput {
 }
 
 /**
- * Permanently delete an employee. Any items assigned to them are unassigned
- * first so the assignee foreign key doesn't block the delete.
+ * Soft-delete an employee: unassign each of their live items (recording the
+ * change in item history), revoke their login, and mark the row deleted. The
+ * row is kept so audit_log (who owned an item, and when) still resolves their
+ * name.
  */
-export async function deleteEmployee(id: UUID): Promise<void> {
+export async function deleteEmployee(id: UUID, ctx: ActorContext): Promise<void> {
   const client = getServiceClient();
-  const { error: unassignErr } = await client
+
+  const { data: emp, error: empErr } = await client
+    .from('employees')
+    .select('user_id')
+    .eq('id', id)
+    .single();
+  if (empErr) throw new Error(empErr.message);
+
+  // Unassign each live item via a transfer, so history records "from X → nobody".
+  const { data: items, error: itemsErr } = await client
     .from('items')
-    .update({ assigned_to: null })
-    .eq('assigned_to', id);
-  if (unassignErr) throw new Error(unassignErr.message);
-  const { error } = await client.from('employees').delete().eq('id', id);
+    .select('id')
+    .eq('assigned_to', id)
+    .is('deleted_at', null);
+  if (itemsErr) throw new Error(itemsErr.message);
+  for (const it of (items ?? []) as { id: UUID }[]) {
+    await transferItem(it.id, { toEmployeeId: null }, ctx);
+  }
+
+  // Revoke their login (best-effort — the row stays for history).
+  const userId = (emp as { user_id: string | null }).user_id;
+  if (userId) {
+    try {
+      await client.auth.admin.deleteUser(userId);
+    } catch {
+      /* ignore — the auth user may already be gone */
+    }
+  }
+
+  const { error } = await client
+    .from('employees')
+    .update({ deleted_at: new Date().toISOString(), user_id: null })
+    .eq('id', id);
   if (error) throw new Error(error.message);
 }
 
