@@ -15,14 +15,14 @@ export default function InventoryPage() {
 
   if (loading) {
     return (
-      <main className="mx-auto max-w-7xl px-6 py-6">
+      <main className="mx-auto max-w-[1600px] px-6 py-6">
         <ListSkeleton />
       </main>
     );
   }
 
   return (
-    <main className="mx-auto max-w-7xl space-y-5 px-6 py-6">
+    <main className="mx-auto max-w-[1600px] space-y-5 px-6 py-6">
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-xl font-semibold text-white">Inventory</h1>

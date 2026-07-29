@@ -201,14 +201,20 @@ export function ItemsView({ scopeBranchId }: { scopeBranchId?: string }) {
 
       {/* Table */}
       <div className="overflow-x-auto rounded-lg border border-slate-800 bg-slate-900">
-        <table className="min-w-full divide-y divide-slate-800 text-sm">
+        <table
+          className={`min-w-full divide-y divide-slate-800 ${
+            detailed
+              ? 'text-xs [&_td]:px-2.5 [&_td]:py-2.5 [&_th]:px-2.5'
+              : 'text-sm'
+          }`}
+        >
           <thead className="bg-slate-800/50 text-left text-xs uppercase tracking-wide text-slate-400">
             <tr>
               <th className="px-4 py-3">Type</th>
               <th className="px-4 py-3">System name</th>
               <th className="px-4 py-3">Model name</th>
               {detailFields.map((f) => (
-                <th key={f.key} className="whitespace-nowrap px-4 py-3">
+                <th key={f.key} className="px-4 py-3">
                   {f.label}
                 </th>
               ))}
@@ -237,7 +243,7 @@ export function ItemsView({ scopeBranchId }: { scopeBranchId?: string }) {
                 <td className="px-4 py-3 text-slate-400">{propertyValue(item, 'system_name')}</td>
                 <td className="px-4 py-3 text-slate-400">{propertyValue(item, 'model')}</td>
                 {detailFields.map((f) => (
-                  <td key={f.key} className="whitespace-nowrap px-4 py-3 text-slate-400">
+                  <td key={f.key} className="px-4 py-3 text-slate-400">
                     {propertyValue(item, f.key)}
                   </td>
                 ))}
