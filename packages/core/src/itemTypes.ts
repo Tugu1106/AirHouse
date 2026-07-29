@@ -21,7 +21,7 @@ export interface ItemTypeField {
   placeholder?: string;
   options?: string[]; // for type: 'select'
   /** If true, the item detail view hides this field when it has no value
-   *  (e.g. GPU — only shown when the machine actually has one). */
+   *  (for optional specs that only some units have). */
   hideWhenEmpty?: boolean;
 }
 
@@ -32,7 +32,7 @@ export interface ItemTypeDef {
 }
 
 // Desktops and laptops share the same spec sheet. Standard specs are always
-// shown (blank if unknown); GPU is optional and hidden when empty.
+// shown (blank if unknown).
 const COMPUTER_FIELDS: ItemTypeField[] = [
   { key: 'model', label: 'Model name', type: 'text', required: true },
   { key: 'system_name', label: 'System name', type: 'text', placeholder: 'e.g. PC-014' },
@@ -40,7 +40,6 @@ const COMPUTER_FIELDS: ItemTypeField[] = [
   { key: 'ram', label: 'RAM', type: 'text', placeholder: 'e.g. 16GB' },
   { key: 'storage', label: 'Hard drive', type: 'text', placeholder: 'e.g. 512GB SSD' },
   { key: 'os', label: 'Operating system', type: 'text', placeholder: 'e.g. Windows 11 Pro' },
-  { key: 'gpu', label: 'GPU', type: 'text', placeholder: 'optional', hideWhenEmpty: true },
 ];
 
 // Mice and keyboards share the same fields.

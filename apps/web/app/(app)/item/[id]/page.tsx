@@ -44,7 +44,7 @@ export default async function ItemHistoryPage({ params }: { params: Promise<{ id
           {def?.fields.map((f) => {
             const val = item.properties[f.key];
             const empty = val == null || val === '';
-            if (f.hideWhenEmpty && empty) return null; // e.g. GPU only shows if present
+            if (f.hideWhenEmpty && empty) return null; // optional specs hide when blank
             return (
               <div key={f.key} className="flex justify-between border-b border-slate-800 py-1">
                 <dt className="text-slate-400">{f.label}</dt>
