@@ -30,13 +30,16 @@ const ITEM_STATUS_STYLE: Record<string, string> = {
   lost: 'bg-red-500/15 text-red-300 ring-red-500/30',
 };
 
-// Colour of the timeline node per action.
-const ACTION_DOT: Record<string, string> = {
+// Colour of the timeline node per event kind.
+const NODE_DOT: Record<string, string> = {
   create: 'bg-emerald-500',
+  assign: 'bg-sky-500',
   transfer: 'bg-sky-500',
   update: 'bg-amber-500',
   soft_delete: 'bg-red-500',
 };
+
+type TimelineKind = 'create' | 'assign' | 'transfer' | 'update' | 'soft_delete';
 
 export default async function ItemHistoryPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
@@ -59,6 +62,21 @@ export default async function ItemHistoryPage({ params }: { params: Promise<{ id
       .filter(Boolean)
       .map(String)
       .join(' · ') || '—';
+
+  // Build a chronological (oldest → newest) timeline. A create-with-owner
+  // expands into two nodes: "Item created" then "Assigned to <first owner>".
+  type Entry = (typeof audit)[number];
+  const timeline: { key: string; kind: TimelineKind; entry: Entry }[] = [];
+  for (const entry of [...audit].reverse()) {
+    if (entry.action === 'create') {
+      timeline.push({ key: `${entry.id}:create`, kind: 'create', entry });
+      if (entry.to_employee_id) {
+        timeline.push({ key: `${entry.id}:assign`, kind: 'assign', entry });
+      }
+    } else {
+      timeline.push({ key: entry.id, kind: entry.action as TimelineKind, entry });
+    }
+  }
 
   return (
     <main className="mx-auto max-w-2xl space-y-4 px-6 py-6">
@@ -97,45 +115,54 @@ export default async function ItemHistoryPage({ params }: { params: Promise<{ id
         {/* Timeline */}
         <div className="mt-6 border-t border-slate-800 pt-5">
           <h2 className="mb-4 text-sm font-semibold text-slate-300">History</h2>
-          {audit.length === 0 ? (
+          {timeline.length === 0 ? (
             <p className="text-sm text-slate-500">No history yet.</p>
           ) : (
             <ol>
-              {audit.map((entry, idx) => {
-                const last = idx === audit.length - 1;
+              {timeline.map((node, idx) => {
+                const last = idx === timeline.length - 1;
+                const { kind, entry } = node;
                 return (
-                  <li key={entry.id} className="flex gap-4">
+                  <li key={node.key} className="flex gap-4">
                     {/* node + connector */}
                     <div className="flex flex-col items-center">
                       <span
                         className={`mt-1 h-4 w-4 shrink-0 rounded-full ring-4 ring-slate-900 ${
-                          ACTION_DOT[entry.action] ?? 'bg-slate-500'
+                          NODE_DOT[kind] ?? 'bg-slate-500'
                         }`}
                       />
                       {!last && <span className="w-px flex-1 bg-slate-800" />}
                     </div>
                     {/* content */}
                     <div className={last ? 'pb-1' : 'pb-6'}>
-                      <div className="text-sm font-medium text-slate-100">{describe(entry.action)}</div>
-                      {(entry.action === 'transfer' || entry.action === 'create') &&
-                        (entry.from_employee_id || entry.to_employee_id) && (
-                          <div className="text-sm text-slate-400">
-                            {assigneeText(entry.from_employee_id, entry.to_employee_id, empName)}
-                            {(entry.diff as { reason?: string } | null)?.reason ===
-                              'employee_deleted' && (
-                              <span className="ml-2 rounded bg-red-500/15 px-1.5 py-0.5 text-[11px] font-medium text-red-300 ring-1 ring-red-500/30">
-                                employee deleted
-                              </span>
-                            )}
+                      {kind === 'assign' ? (
+                        <>
+                          <div className="text-sm font-medium text-slate-100">
+                            Assigned to {empName(entry.to_employee_id)}
                           </div>
-                        )}
-                      {entry.action === 'transfer' &&
-                        (entry.from_branch_id || entry.to_branch_id) && (
-                          <div className="text-sm text-slate-400">
-                            Branch: {branchName(entry.from_branch_id)} → {branchName(entry.to_branch_id)}
-                          </div>
-                        )}
-                      {entry.diff && entry.action === 'update' && (
+                          <div className="text-xs text-slate-500">First owner</div>
+                        </>
+                      ) : (
+                        <div className="text-sm font-medium text-slate-100">{describe(kind)}</div>
+                      )}
+
+                      {kind === 'transfer' && (entry.from_employee_id || entry.to_employee_id) && (
+                        <div className="text-sm text-slate-400">
+                          {assigneeText(entry.from_employee_id, entry.to_employee_id, empName)}
+                          {(entry.diff as { reason?: string } | null)?.reason ===
+                            'employee_deleted' && (
+                            <span className="ml-2 rounded bg-red-500/15 px-1.5 py-0.5 text-[11px] font-medium text-red-300 ring-1 ring-red-500/30">
+                              employee deleted
+                            </span>
+                          )}
+                        </div>
+                      )}
+                      {kind === 'transfer' && (entry.from_branch_id || entry.to_branch_id) && (
+                        <div className="text-sm text-slate-400">
+                          Branch: {branchName(entry.from_branch_id)} → {branchName(entry.to_branch_id)}
+                        </div>
+                      )}
+                      {kind === 'update' && entry.diff && (
                         <pre className="mt-1 overflow-x-auto rounded bg-slate-800/50 p-2 text-xs text-slate-400">
                           {JSON.stringify(entry.diff, null, 2)}
                         </pre>
