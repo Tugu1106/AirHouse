@@ -43,6 +43,15 @@ export function ItemsView({ scopeBranchId }: { scopeBranchId?: string }) {
   const [assignee, setAssignee] = useState('');
   const [showDeleted, setShowDeleted] = useState(false);
   const [sort, setSort] = useState('created_at:desc');
+  const [detailed, setDetailed] = useState(false);
+
+  // Remember the compact/detailed choice across pages and reloads.
+  useEffect(() => {
+    setDetailed(localStorage.getItem('inventory_detailed') === '1');
+  }, []);
+  useEffect(() => {
+    localStorage.setItem('inventory_detailed', detailed ? '1' : '0');
+  }, [detailed]);
 
   const visible = useMemo(() => {
     let rows = scopeBranchId ? items.filter((r) => r.branch_id === scopeBranchId) : items;
@@ -71,6 +80,24 @@ export function ItemsView({ scopeBranchId }: { scopeBranchId?: string }) {
     return rows;
   }, [items, scopeBranchId, showDeleted, type, status, assignee, search, sort]);
 
+  // Detailed mode adds a column for every spec field of the item types present
+  // in the current rows (System name / Model already have their own columns).
+  const detailFields = useMemo(() => {
+    if (!detailed) return [] as { key: string; label: string }[];
+    const typesPresent = new Set(visible.map((r) => r.type));
+    const seen = new Set<string>(['system_name', 'model']);
+    const out: { key: string; label: string }[] = [];
+    for (const t of listItemTypes()) {
+      if (!typesPresent.has(t.key)) continue;
+      for (const f of t.fields) {
+        if (seen.has(f.key)) continue;
+        seen.add(f.key);
+        out.push({ key: f.key, label: f.label });
+      }
+    }
+    return out;
+  }, [detailed, visible]);
+
   async function runRowAction(id: string, action: (id: string) => Promise<ActionResult>) {
     setBusyId(id);
     try {
@@ -81,7 +108,7 @@ export function ItemsView({ scopeBranchId }: { scopeBranchId?: string }) {
     }
   }
 
-  const cols = scopeBranchId ? 6 : 7;
+  const cols = (scopeBranchId ? 6 : 7) + detailFields.length;
 
   return (
     <div className="space-y-4">
@@ -139,7 +166,30 @@ export function ItemsView({ scopeBranchId }: { scopeBranchId?: string }) {
           <input type="checkbox" checked={showDeleted} onChange={(e) => setShowDeleted(e.target.checked)} />
           Show deleted
         </label>
-        <div className="ml-auto">
+        <div className="ml-auto flex items-center gap-2">
+          <div className="flex overflow-hidden rounded-md border border-slate-700 text-sm">
+            <button
+              onClick={() => setDetailed(false)}
+              className={
+                detailed
+                  ? 'px-3 py-1.5 text-slate-400 hover:bg-slate-800'
+                  : 'bg-slate-700 px-3 py-1.5 font-medium text-white'
+              }
+            >
+              Compact
+            </button>
+            <button
+              onClick={() => setDetailed(true)}
+              title="Show full specs (CPU, RAM, storage, OS…)"
+              className={
+                detailed
+                  ? 'bg-slate-700 px-3 py-1.5 font-medium text-white'
+                  : 'px-3 py-1.5 text-slate-400 hover:bg-slate-800'
+              }
+            >
+              Detailed
+            </button>
+          </div>
           <button
             onClick={() => setModal({ mode: 'add' })}
             className="rounded-md bg-brand px-4 py-2 text-sm font-medium text-white hover:bg-brand-dark"
@@ -157,6 +207,11 @@ export function ItemsView({ scopeBranchId }: { scopeBranchId?: string }) {
               <th className="px-4 py-3">Type</th>
               <th className="px-4 py-3">System name</th>
               <th className="px-4 py-3">Model name</th>
+              {detailFields.map((f) => (
+                <th key={f.key} className="whitespace-nowrap px-4 py-3">
+                  {f.label}
+                </th>
+              ))}
               {!scopeBranchId && <th className="px-4 py-3">Branch</th>}
               <th className="px-4 py-3">Assigned to</th>
               <th className="px-4 py-3">Status</th>
@@ -181,6 +236,11 @@ export function ItemsView({ scopeBranchId }: { scopeBranchId?: string }) {
                 </td>
                 <td className="px-4 py-3 text-slate-400">{propertyValue(item, 'system_name')}</td>
                 <td className="px-4 py-3 text-slate-400">{propertyValue(item, 'model')}</td>
+                {detailFields.map((f) => (
+                  <td key={f.key} className="whitespace-nowrap px-4 py-3 text-slate-400">
+                    {propertyValue(item, f.key)}
+                  </td>
+                ))}
                 {!scopeBranchId && <td className="px-4 py-3 text-slate-400">{item.branch?.name ?? '—'}</td>}
                 <td className="px-4 py-3 text-slate-400">{item.assignee?.name ?? 'Unassigned'}</td>
                 <td className="px-4 py-3">
