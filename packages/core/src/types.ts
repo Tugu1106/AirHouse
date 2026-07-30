@@ -45,6 +45,7 @@ export const EMPLOYEE_POSITIONS: { key: string; label: string }[] = [
   { key: 'agent', label: 'Agent' },
   { key: 'finance', label: 'Finance' },
   { key: 'supervisor', label: 'Supervisor' },
+  { key: 'human_resource', label: 'Human Resource' },
 ];
 
 export interface Employee {
