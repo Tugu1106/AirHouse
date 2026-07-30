@@ -74,6 +74,41 @@ export async function createEmployee(input: CreateEmployeeInput): Promise<Employ
   return data as Employee;
 }
 
+// --- login status ----------------------------------------------------------
+
+export interface LoginStatus {
+  /** True once the employee has signed in at least once. */
+  signedIn: boolean;
+  /** ISO timestamp of their last sign-in, or null if never. */
+  signedInAt: string | null;
+  /** Still on the one-time temp password (hasn't set their own yet). */
+  mustReset: boolean;
+}
+
+/**
+ * Read sign-in status for every auth user, keyed by user_id. Pair with an
+ * employee's user_id to tell who has logged in vs. who was only invited.
+ */
+export async function listLoginStatus(): Promise<Record<string, LoginStatus>> {
+  const client = getServiceClient();
+  const map: Record<string, LoginStatus> = {};
+  const perPage = 100;
+  for (let page = 1; ; page++) {
+    const { data, error } = await client.auth.admin.listUsers({ page, perPage });
+    if (error) throw new Error(error.message);
+    const users = data.users ?? [];
+    for (const u of users) {
+      map[u.id] = {
+        signedIn: !!u.last_sign_in_at,
+        signedInAt: u.last_sign_in_at ?? null,
+        mustReset: !!(u.user_metadata as { must_reset?: boolean } | undefined)?.must_reset,
+      };
+    }
+    if (users.length < perPage) break;
+  }
+  return map;
+}
+
 // --- self-service login provisioning --------------------------------------
 
 function genTempPassword(): string {
