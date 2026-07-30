@@ -22,6 +22,7 @@ import {
   findBranchByName,
   findEmployeeByName,
   EMPLOYEE_STATUSES,
+  DEFAULT_POSITION,
   type ItemStatus,
   type EmployeeStatus,
 } from '@airlink/core';
@@ -235,14 +236,17 @@ export const TOOLS: ToolDef[] = [
   {
     name: 'add_employee',
     description:
-      'Create an employee. name is required; branch (by name), phone, position, status are optional. If email is given, a read-only login is created and a temporary password is returned to share with them.',
+      'Create an employee. name is required; branch (by name), phone, position, status are optional. position is free text — any job title works (e.g. Developer, Marketing, Human Resource); defaults to "Ticket Agency" if omitted. If email is given, a read-only login is created and a temporary password is returned to share with them.',
     inputSchema: {
       type: 'object',
       properties: {
         name: { type: 'string', description: 'Full name.' },
         branch: { type: 'string', description: 'Branch name the employee works at.' },
         phone: { type: 'string', description: 'Mobile phone number.' },
-        position: { type: 'string', description: 'Job title / position.' },
+        position: {
+          type: 'string',
+          description: 'Job title / position — any free-text value. Defaults to "Ticket Agency".',
+        },
         email: { type: 'string', description: 'Work email — enables their read-only login.' },
         status: {
           type: 'string',
@@ -259,7 +263,7 @@ export const TOOLS: ToolDef[] = [
         name: str(args.name),
         branchId,
         phone: str(args.phone) || null,
-        position: str(args.position) || null,
+        position: str(args.position) || DEFAULT_POSITION,
         status: (str(args.status) as EmployeeStatus) || undefined,
         email,
       });
@@ -282,7 +286,7 @@ export const TOOLS: ToolDef[] = [
         new_name: { type: 'string', description: 'New name, if renaming.' },
         status: { type: 'string', enum: EMPLOYEE_STATUS_KEYS },
         phone: { type: 'string' },
-        position: { type: 'string' },
+        position: { type: 'string', description: 'Job title / position — any free-text value.' },
         branch: { type: 'string', description: 'New branch name.' },
         email: {
           type: 'string',

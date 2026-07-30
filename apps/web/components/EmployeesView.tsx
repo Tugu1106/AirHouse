@@ -3,7 +3,12 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useActionState } from 'react';
 import Link from 'next/link';
-import { EMPLOYEE_STATUSES, EMPLOYEE_POSITIONS, type EmployeeStatus } from '@airlink/core/types';
+import {
+  EMPLOYEE_STATUSES,
+  EMPLOYEE_POSITIONS,
+  DEFAULT_POSITION,
+  type EmployeeStatus,
+} from '@airlink/core/types';
 import type { Employee } from '@airlink/core';
 import { useData } from './DataProvider';
 import { Dialog } from './ItemsView';
@@ -230,6 +235,7 @@ export function EmployeeForm({
   defaultBranchId?: string | null;
   onDone: () => void;
 }) {
+  const { employees } = useData();
   const action = emp ? updateEmployeeAction : createEmployeeAction;
   const [state, formAction] = useActionState<ActionResult | null, FormData>(action, null);
   const [createdTemp, setCreatedTemp] = useState<string | null>(null);
@@ -240,14 +246,13 @@ export function EmployeeForm({
     }
   }, [state, onDone]);
 
-  // Match the stored position to a known option by key OR label (case-insensitive),
-  // so a value like "Developer" pre-selects the "developer" option. Unknown values
-  // are shown as-is via an extra option.
-  const currentPos = emp?.position ?? '';
-  const matchedPos = EMPLOYEE_POSITIONS.find(
-    (p) => p.key.toLowerCase() === currentPos.toLowerCase() || p.label.toLowerCase() === currentPos.toLowerCase(),
-  );
-  const positionValue = matchedPos?.key ?? currentPos;
+  // Position is free text: suggest the defaults plus any position already in use
+  // (which includes ones Claude/MCP created). Admin can also just type a new one.
+  const positionOptions = useMemo(() => {
+    const set = new Set<string>(EMPLOYEE_POSITIONS.map((p) => p.label));
+    for (const e of employees) if (e.position) set.add(e.position);
+    return [...set].sort((a, b) => a.localeCompare(b));
+  }, [employees]);
 
   if (createdTemp) {
     return (
@@ -293,15 +298,18 @@ export function EmployeeForm({
         </div>
         <div>
           <label className="block text-sm font-medium text-slate-300">Position</label>
-          <select name="position" defaultValue={positionValue} className="mt-1 w-full rounded-md border border-slate-700 bg-slate-800 text-slate-100 px-3 py-2 text-sm">
-            <option value="">— none —</option>
-            {EMPLOYEE_POSITIONS.map((p) => (
-              <option key={p.key} value={p.key}>
-                {p.label}
-              </option>
+          <input
+            name="position"
+            list="position-options"
+            defaultValue={emp?.position ?? DEFAULT_POSITION}
+            placeholder="Type or pick a position…"
+            className="mt-1 w-full rounded-md border border-slate-700 bg-slate-800 text-slate-100 placeholder-slate-500 px-3 py-2 text-sm"
+          />
+          <datalist id="position-options">
+            {positionOptions.map((o) => (
+              <option key={o} value={o} />
             ))}
-            {positionValue && !matchedPos && <option value={positionValue}>{positionValue}</option>}
-          </select>
+          </datalist>
         </div>
         <div>
           <label className="block text-sm font-medium text-slate-300">Branch</label>

@@ -39,13 +39,19 @@ export const EMPLOYEE_STATUSES: { key: EmployeeStatus; label: string }[] = [
   { key: 'resigned', label: 'Resigned' },
 ];
 
-// Predefined job positions — add new ones here (the web form reads this list).
+// Default position suggestions. Positions are FREE TEXT — the web form offers
+// these plus any already in use, and Claude/MCP can set any value. New
+// employees default to "Ticket Agency".
+export const DEFAULT_POSITION = 'Ticket Agency';
+
 export const EMPLOYEE_POSITIONS: { key: string; label: string }[] = [
-  { key: 'developer', label: 'Developer' },
-  { key: 'agent', label: 'Agent' },
-  { key: 'finance', label: 'Finance' },
-  { key: 'supervisor', label: 'Supervisor' },
-  { key: 'human_resource', label: 'Human Resource' },
+  { key: 'Ticket Agency', label: 'Ticket Agency' },
+  { key: 'Developer', label: 'Developer' },
+  { key: 'Human Resource', label: 'Human Resource' },
+  { key: 'Marketing', label: 'Marketing' },
+  { key: 'Agent', label: 'Agent' },
+  { key: 'Finance', label: 'Finance' },
+  { key: 'Supervisor', label: 'Supervisor' },
 ];
 
 export interface Employee {
