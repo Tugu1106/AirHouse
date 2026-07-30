@@ -4,6 +4,7 @@ import { useState } from 'react';
 import { useData } from '@/components/DataProvider';
 import { ItemsView } from '@/components/ItemsView';
 import { AdminBar } from '@/components/AdminBar';
+import { ExportButton } from '@/components/ExportButton';
 import { ListSkeleton } from '@/components/Skeleton';
 
 export default function InventoryPage() {
@@ -30,7 +31,10 @@ export default function InventoryPage() {
             {live.length} live items across {branches.length} branches
           </p>
         </div>
-        <AdminBar />
+        <div className="flex items-center gap-2">
+          <ExportButton />
+          <AdminBar />
+        </div>
       </div>
 
       <div className="flex flex-wrap gap-2">
