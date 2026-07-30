@@ -12,10 +12,11 @@ export type Role =
  *  (worker), or none. Used to gate admin vs read-only worker access. */
 export async function getRole(): Promise<Role> {
   const supabase = await createSupabaseServerClient();
+  // Verify against the Auth server — getRole decides admin vs worker access.
   const {
-    data: { session },
-  } = await supabase.auth.getSession();
-  const email = session?.user?.email?.toLowerCase();
+    data: { user },
+  } = await supabase.auth.getUser();
+  const email = user?.email?.toLowerCase();
   if (!email) return { role: 'none' };
   // Fail-safe: no ADMIN_EMAIL configured → treat any login as admin.
   if (!ADMIN_EMAIL || email === ADMIN_EMAIL) return { role: 'admin', email };
@@ -39,11 +40,11 @@ export async function requireActor(): Promise<ActorContext> {
 }
 
 export async function getCurrentUserEmail(): Promise<string | null> {
-  // Read the email from the session cookie (no network round-trip) — this is on
-  // the initial-load hot path and it's only used to display the address.
+  // Display-only (the header address), but use the verified user so we don't
+  // read an unauthenticated value from the cookie. Runs once per data load.
   const supabase = await createSupabaseServerClient();
   const {
-    data: { session },
-  } = await supabase.auth.getSession();
-  return session?.user?.email ?? null;
+    data: { user },
+  } = await supabase.auth.getUser();
+  return user?.email ?? null;
 }

@@ -30,13 +30,13 @@ export async function updateSession(request: NextRequest) {
     },
   );
 
-  // Cookie-based session read (no network round-trip). This runs on every
-  // request including client-side navigations, so we keep it network-free;
-  // the actual data mutations re-verify the user server-side in each action.
+  // Authenticate against the Supabase Auth server (not just the cookie). This is
+  // the route gatekeeper, so the user/email/metadata it decides on must be
+  // verified, not read from a possibly-stale or tampered cookie. getUser() makes
+  // a network round-trip — the accepted tradeoff for a trustworthy auth check.
   const {
-    data: { session },
-  } = await supabase.auth.getSession();
-  const user = session?.user ?? null;
+    data: { user },
+  } = await supabase.auth.getUser();
 
   const path = request.nextUrl.pathname;
   const isAuthRoute = path.startsWith('/login');
