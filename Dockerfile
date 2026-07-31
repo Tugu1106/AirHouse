@@ -19,7 +19,11 @@ RUN pnpm install --frozen-lockfile --filter @airlink/web...
 FROM node:22-alpine AS builder
 RUN corepack enable
 WORKDIR /app
-COPY --from=deps /app/node_modules ./node_modules
+# Bring the whole installed tree from deps — pnpm puts a node_modules in each
+# workspace package (apps/web/node_modules holds the `next` binary), not just at
+# the root. Then overlay the source (node_modules isn't in the git context, so
+# the copied ones survive).
+COPY --from=deps /app ./
 COPY . .
 RUN pnpm --filter @airlink/web build
 
