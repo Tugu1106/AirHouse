@@ -1,0 +1,36 @@
+# Local development database for AirHouse.
+#
+# Brings up a self-hosted PostgreSQL and auto-loads db/init/*.sql on first boot
+# (only when the volume is empty). Not the production compose — that comes in a
+# later stage. Credentials here are DEV ONLY.
+#
+#   docker compose up -d        # start
+#   docker compose down         # stop (keeps data)
+#   docker compose down -v      # stop and WIPE data (re-runs the schema next up)
+#
+# Connect from DBeaver / the app:
+#   host=localhost port=5432 db=airhouse user=airhouse password=airhouse_dev
+#   DATABASE_URL=postgresql://airhouse:airhouse_dev@localhost:5432/airhouse
+
+services:
+  db:
+    image: postgres:16-alpine
+    container_name: airhouse-db
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: airhouse
+      POSTGRES_PASSWORD: airhouse_dev
+      POSTGRES_DB: airhouse
+    ports:
+      - '5432:5432'
+    volumes:
+      - airhouse_pgdata:/var/lib/postgresql/data
+      - ./db/init:/docker-entrypoint-initdb.d:ro
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U airhouse -d airhouse']
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+volumes:
+  airhouse_pgdata:
