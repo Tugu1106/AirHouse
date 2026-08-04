@@ -1,50 +1,33 @@
-import { createSupabaseServerClient } from './supabase/server';
-import { findEmployeeByEmail, type ActorContext, type Employee } from '@airlink/core';
-
-const ADMIN_EMAIL = (process.env.ADMIN_EMAIL ?? '').toLowerCase();
+import { getEmployee, type ActorContext, type AuthUser, type Employee } from '@airlink/core';
+import { getCurrentUser } from './session';
 
 export type Role =
-  | { role: 'admin'; email: string }
-  | { role: 'worker'; email: string; employee: Employee }
+  | { role: 'admin'; user: AuthUser }
+  | { role: 'worker'; user: AuthUser; employee: Employee }
   | { role: 'none' };
 
-/** Determine the current user's role: the configured admin, a matched employee
- *  (worker), or none. Used to gate admin vs read-only worker access. */
+/** Determine the current user's role from their session: admin, worker (with
+ *  their employee record), or none. Used to gate admin vs read-only access. */
 export async function getRole(): Promise<Role> {
-  const supabase = await createSupabaseServerClient();
-  // Verify against the Auth server — getRole decides admin vs worker access.
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  const email = user?.email?.toLowerCase();
-  if (!email) return { role: 'none' };
-  // Fail-safe: no ADMIN_EMAIL configured → treat any login as admin.
-  if (!ADMIN_EMAIL || email === ADMIN_EMAIL) return { role: 'admin', email };
-  const employee = await findEmployeeByEmail(email);
-  if (employee) return { role: 'worker', email, employee };
-  return { role: 'none' };
+  const user = await getCurrentUser();
+  if (!user) return { role: 'none' };
+  if (user.role === 'admin') return { role: 'admin', user };
+  const employee = user.employee_id ? await getEmployee(user.employee_id) : null;
+  if (!employee) return { role: 'none' };
+  return { role: 'worker', user, employee };
 }
 
 /**
- * Returns the current admin user's id as an ActorContext for core calls, or
- * throws if there is no session (should not happen behind the middleware
- * guard, but keeps mutations honest).
+ * Returns the current user's id as an ActorContext for core writes, or throws
+ * if there is no valid session (should not happen behind the guards).
  */
 export async function requireActor(): Promise<ActorContext> {
-  const supabase = await createSupabaseServerClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const user = await getCurrentUser();
   if (!user) throw new Error('Not authenticated');
   return { actorId: user.id };
 }
 
 export async function getCurrentUserEmail(): Promise<string | null> {
-  // Display-only (the header address), but use the verified user so we don't
-  // read an unauthenticated value from the cookie. Runs once per data load.
-  const supabase = await createSupabaseServerClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const user = await getCurrentUser();
   return user?.email ?? null;
 }

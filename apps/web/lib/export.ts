@@ -2,8 +2,8 @@
 // branch as a banner section) followed by one sheet per branch. exceljs is
 // loaded dynamically so it stays out of the main page bundle until Export runs.
 
-import { listItemTypes, getItemType, type ItemWithRelations } from '@airlink/core';
-import type { Branch } from '@airlink/core';
+import { listItemTypes, getItemType } from '@airlink/core/itemTypes';
+import type { ItemWithRelations, Branch } from '@airlink/core';
 import type { Row, Worksheet } from 'exceljs';
 
 const typeLabel = (key: string) => getItemType(key)?.label ?? key;

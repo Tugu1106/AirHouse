@@ -10,5 +10,6 @@ export * from './list';
 export * from './audit';
 export * from './branches';
 export * from './employees';
+export * from './auth';
 export * from './admin';
 export { getDb, configureCore } from './db';

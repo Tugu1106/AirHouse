@@ -24,12 +24,21 @@ import {
   resetEmployeeLogin,
   deleteAllItems,
   deleteAllEmployees,
+  verifyCredentials,
+  createSession,
+  setUserPassword,
+  deleteSession,
   getItemType,
   type ItemStatus,
   type EmployeeStatus,
 } from '@airlink/core';
 import { getRole, requireActor } from './auth';
-import { createSupabaseServerClient } from './supabase/server';
+import {
+  getCurrentUser,
+  getSessionId,
+  setSessionCookie,
+  clearSessionCookie,
+} from './session';
 
 export type ActionResult = { ok: true; tempPassword?: string } | { ok: false; error: string };
 
@@ -60,15 +69,20 @@ function errMessage(e: unknown): string {
 export async function signInAction(_prev: ActionResult | null, formData: FormData): Promise<ActionResult> {
   const email = String(formData.get('email') ?? '');
   const password = String(formData.get('password') ?? '');
-  const supabase = await createSupabaseServerClient();
-  const { data, error } = await supabase.auth.signInWithPassword({ email, password });
-  if (error) return { ok: false, error: error.message };
+
+  let user;
+  try {
+    user = await verifyCredentials(email, password);
+    if (!user) return { ok: false, error: 'Invalid email or password.' };
+    const session = await createSession(user.id);
+    await setSessionCookie(session.id, session.expiresAt);
+  } catch (e) {
+    return { ok: false, error: errMessage(e) };
+  }
 
   // Route by state/role: forced reset → admin → worker.
-  if (data.user?.user_metadata?.must_reset) redirect('/set-password');
-  const adminEmail = (process.env.ADMIN_EMAIL ?? '').toLowerCase();
-  const isAdmin = !adminEmail || data.user?.email?.toLowerCase() === adminEmail;
-  redirect(isAdmin ? '/map' : '/me');
+  if (user.must_reset) redirect('/set-password');
+  redirect(user.role === 'admin' ? '/map' : '/me');
 }
 
 export async function setPasswordAction(
@@ -80,23 +94,28 @@ export async function setPasswordAction(
   if (password.length < 8) return { ok: false, error: 'Password must be at least 8 characters.' };
   if (password !== confirm) return { ok: false, error: 'Passwords do not match.' };
 
-  const supabase = await createSupabaseServerClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  if (!user) return { ok: false, error: 'Not authenticated' };
-
-  const { error } = await supabase.auth.updateUser({ password, data: { must_reset: false } });
-  if (error) return { ok: false, error: error.message };
-
-  const adminEmail = (process.env.ADMIN_EMAIL ?? '').toLowerCase();
-  const isAdmin = !adminEmail || user.email?.toLowerCase() === adminEmail;
-  redirect(isAdmin ? '/map' : '/me');
+  let role: 'admin' | 'worker';
+  try {
+    const user = await getCurrentUser();
+    if (!user) return { ok: false, error: 'Not authenticated' };
+    await setUserPassword(user.id, password);
+    role = user.role;
+  } catch (e) {
+    return { ok: false, error: errMessage(e) };
+  }
+  redirect(role === 'admin' ? '/map' : '/me');
 }
 
 export async function signOutAction(): Promise<void> {
-  const supabase = await createSupabaseServerClient();
-  await supabase.auth.signOut();
+  const id = await getSessionId();
+  if (id) {
+    try {
+      await deleteSession(id);
+    } catch {
+      /* ignore */
+    }
+  }
+  await clearSessionCookie();
   redirect('/login');
 }
 

@@ -45,6 +45,8 @@ const EMP_STATUS_STYLE: Record<string, string> = {
 
 export default async function MePage() {
   const r = await getRole();
+  if (r.role === 'none') redirect('/login');
+  if (r.user.must_reset) redirect('/set-password');
   if (r.role === 'admin') redirect('/map');
 
   const shell = (children: React.ReactNode) => (

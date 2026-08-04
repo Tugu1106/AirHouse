@@ -4,19 +4,47 @@ import { getDb } from './db';
 import { transferItem } from './transfers';
 import type { ActorContext, Employee, EmployeeStatus, UUID } from './types';
 
-// The employees table no longer stores a login id (auth lives in `users`), but
-// the public Employee type still carries user_id as a soon-to-be-removed vestige
-// — populate it as null until the web is moved to the new auth in Stage 3.
-type EmployeeRow = Omit<Employee, 'user_id'>;
-const toEmployee = (row: EmployeeRow): Employee => ({ ...row, user_id: null });
+// Map a DB row to the public Employee. user_id is the linked login's users.id
+// (from a join) or null; the employees table itself no longer stores it.
+function toEmployee(row: Record<string, unknown>): Employee {
+  return {
+    id: row.id as string,
+    name: row.name as string,
+    branch_id: (row.branch_id as string | null) ?? null,
+    active: row.active as boolean,
+    phone: (row.phone as string | null) ?? null,
+    position: (row.position as string | null) ?? null,
+    status: row.status as EmployeeStatus,
+    email: (row.email as string | null) ?? null,
+    user_id: (row.user_id as string | null) ?? null,
+    deleted_at: (row.deleted_at as string | null) ?? null,
+    created_at: row.created_at as string,
+  };
+}
 
 export async function listEmployees(branchId?: UUID, includeDeleted = false): Promise<Employee[]> {
   const db = getDb();
-  let q = db.selectFrom('employees').selectAll().orderBy('name');
-  if (!includeDeleted) q = q.where('deleted_at', 'is', null);
-  if (branchId) q = q.where('branch_id', '=', branchId);
-  const rows = (await q.execute()) as EmployeeRow[];
-  return rows.map(toEmployee);
+  let q = db
+    .selectFrom('employees as e')
+    .leftJoin('users as u', 'u.employee_id', 'e.id')
+    .selectAll('e')
+    .select('u.id as user_id')
+    .orderBy('e.name');
+  if (!includeDeleted) q = q.where('e.deleted_at', 'is', null);
+  if (branchId) q = q.where('e.branch_id', '=', branchId);
+  return (await q.execute()).map(toEmployee);
+}
+
+export async function getEmployee(id: UUID): Promise<Employee | null> {
+  const db = getDb();
+  const row = await db
+    .selectFrom('employees as e')
+    .leftJoin('users as u', 'u.employee_id', 'e.id')
+    .selectAll('e')
+    .select('u.id as user_id')
+    .where('e.id', '=', id)
+    .executeTakeFirst();
+  return row ? toEmployee(row) : null;
 }
 
 /**
@@ -31,7 +59,7 @@ export async function findEmployeeByName(name: string, branchId?: UUID): Promise
     .where('name', 'ilike', name.trim())
     .where('deleted_at', 'is', null);
   if (branchId) q = q.where('branch_id', '=', branchId);
-  const rows = (await q.execute()) as EmployeeRow[];
+  const rows = await q.execute();
   if (rows.length === 0) throw new Error(`No employee named "${name}".`);
   if (rows.length > 1) {
     throw new Error(`"${name}" matches multiple employees. Specify the branch to disambiguate.`);
@@ -42,12 +70,12 @@ export async function findEmployeeByName(name: string, branchId?: UUID): Promise
 /** Resolve an employee by their work email (case-insensitive). */
 export async function findEmployeeByEmail(email: string): Promise<Employee | null> {
   const db = getDb();
-  const row = (await db
+  const row = await db
     .selectFrom('employees')
     .selectAll()
     .where('email', 'ilike', email.trim())
     .where('deleted_at', 'is', null)
-    .executeTakeFirst()) as EmployeeRow | undefined;
+    .executeTakeFirst();
   return row ? toEmployee(row) : null;
 }
 
@@ -62,7 +90,7 @@ export interface CreateEmployeeInput {
 
 export async function createEmployee(input: CreateEmployeeInput): Promise<Employee> {
   const db = getDb();
-  const row = (await db
+  const row = await db
     .insertInto('employees')
     .values({
       name: input.name,
@@ -73,7 +101,7 @@ export async function createEmployee(input: CreateEmployeeInput): Promise<Employ
       email: input.email ?? null,
     })
     .returningAll()
-    .executeTakeFirstOrThrow()) as EmployeeRow;
+    .executeTakeFirstOrThrow();
   return toEmployee(row);
 }
 
@@ -89,49 +117,25 @@ export interface LoginStatus {
 }
 
 /**
- * Sign-in status for every worker login, keyed by employee_id. Pair with an
- * employee to tell who has logged in vs. who was only invited.
+ * Sign-in status for every worker login, keyed by users.id (which matches an
+ * employee's user_id). Tells who has logged in vs. who was only invited.
  */
 export async function listLoginStatus(): Promise<Record<string, LoginStatus>> {
   const db = getDb();
   const rows = await db
     .selectFrom('users')
-    .select(['employee_id', 'last_sign_in_at', 'must_reset'])
+    .select(['id', 'last_sign_in_at', 'must_reset'])
     .where('employee_id', 'is not', null)
     .execute();
   const map: Record<string, LoginStatus> = {};
   for (const r of rows) {
-    if (!r.employee_id) continue;
-    map[r.employee_id] = {
+    map[r.id] = {
       signedIn: r.last_sign_in_at != null,
       signedInAt: r.last_sign_in_at,
       mustReset: r.must_reset,
     };
   }
   return map;
-}
-
-// --- self-service login provisioning ---------------------------------------
-
-export function genTempPassword(): string {
-  // Readable characters (no look-alikes), 10 chars.
-  const chars = 'ABCDEFGHJKMNPQRSTUVWXYZ23456789abcdefghijkmnpqrstuvwxyz';
-  const bytes = new Uint8Array(10);
-  (globalThis as unknown as { crypto: { getRandomValues: (a: Uint8Array) => void } }).crypto.getRandomValues(bytes);
-  return Array.from(bytes, (b) => chars[b % chars.length]!).join('');
-}
-
-/**
- * Create a read-only login for an employee. Rewritten with custom auth in
- * Stage 3 (bcrypt hash into the `users` table).
- */
-export async function provisionEmployeeLogin(_employeeId: UUID, _email: string): Promise<string> {
-  throw new Error('provisionEmployeeLogin is implemented in Stage 3 (custom auth).');
-}
-
-/** Reset an employee login to a new temp password. Implemented in Stage 3. */
-export async function resetEmployeeLogin(_employeeId: UUID): Promise<string> {
-  throw new Error('resetEmployeeLogin is implemented in Stage 3 (custom auth).');
 }
 
 export interface UpdateEmployeeInput {
@@ -151,7 +155,6 @@ export interface UpdateEmployeeInput {
 export async function deleteEmployee(id: UUID, ctx: ActorContext): Promise<void> {
   const db = getDb();
 
-  // Unassign each live item via a transfer, so history records "from X → nobody".
   const items = await db
     .selectFrom('items')
     .select('id')
@@ -162,10 +165,8 @@ export async function deleteEmployee(id: UUID, ctx: ActorContext): Promise<void>
     await transferItem(it.id, { toEmployeeId: null, reason: 'employee_deleted' }, ctx);
   }
 
-  // Revoke their login (sessions cascade on delete).
   await db.deleteFrom('users').where('employee_id', '=', id).execute();
 
-  // Clear email too so it frees the unique index and can be reused later.
   await db
     .updateTable('employees')
     .set({ deleted_at: new Date().toISOString(), email: null })
@@ -187,22 +188,10 @@ export async function updateEmployee(id: UUID, patch: UpdateEmployeeInput): Prom
   }
 
   const db = getDb();
-
-  // Nothing to change — return the current row.
   if (Object.keys(update).length === 0) {
-    const row = (await db
-      .selectFrom('employees')
-      .selectAll()
-      .where('id', '=', id)
-      .executeTakeFirstOrThrow()) as EmployeeRow;
-    return toEmployee(row);
+    return (await getEmployee(id))!;
   }
 
-  const row = (await db
-    .updateTable('employees')
-    .set(update)
-    .where('id', '=', id)
-    .returningAll()
-    .executeTakeFirstOrThrow()) as EmployeeRow;
-  return toEmployee(row);
+  await db.updateTable('employees').set(update).where('id', '=', id).execute();
+  return (await getEmployee(id))!;
 }

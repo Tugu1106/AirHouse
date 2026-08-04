@@ -1,13 +1,34 @@
-import type { NextRequest } from 'next/server';
-import { updateSession } from './lib/supabase/middleware';
+import { NextResponse, type NextRequest } from 'next/server';
 
-export async function middleware(request: NextRequest) {
-  return updateSession(request);
+// Coarse gate only (runs on the Edge, so no DB): send anonymous users to /login,
+// and logged-in users away from /login. The real authorization — valid session,
+// admin vs worker, forced password reset — happens in the server components and
+// actions, which can reach Postgres.
+const PUBLIC = ['/login'];
+
+export function middleware(request: NextRequest) {
+  const { pathname } = request.nextUrl;
+  const hasSession = request.cookies.has('session');
+  const isPublic = PUBLIC.some((p) => pathname === p || pathname.startsWith(p + '/'));
+
+  if (!hasSession && !isPublic) {
+    const url = request.nextUrl.clone();
+    url.pathname = '/login';
+    url.search = '';
+    return NextResponse.redirect(url);
+  }
+  if (hasSession && pathname === '/login') {
+    const url = request.nextUrl.clone();
+    url.pathname = '/';
+    url.search = '';
+    return NextResponse.redirect(url);
+  }
+  return NextResponse.next();
 }
 
 export const config = {
+  // Everything except API routes (they return 403 themselves) and static assets.
   matcher: [
-    // Run on everything except static assets and image files.
-    '/((?!_next/static|_next/image|favicon.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)',
+    '/((?!api|_next/static|_next/image|favicon.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp|ico)$).*)',
   ],
 };
