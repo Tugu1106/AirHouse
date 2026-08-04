@@ -22,7 +22,11 @@ services:
       interval: 5s
       timeout: 5s
       retries: 10
-    # Not published to the host — only the web service reaches it (db:5432).
+    # Published on the internal network so your PC (local MCP + DBeaver) can
+    # reach it directly. Protected by POSTGRES_PASSWORD. To lock it down later,
+    # remove this ports mapping (or bind to 127.0.0.1 and use an SSH tunnel).
+    ports:
+      - '5432:5432'
 
   web:
     build:
