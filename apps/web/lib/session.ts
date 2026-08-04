@@ -8,7 +8,11 @@ export async function setSessionCookie(id: string, expiresAt: string): Promise<v
   store.set(COOKIE, id, {
     httpOnly: true,
     sameSite: 'lax',
-    secure: process.env.NODE_ENV === 'production',
+    // Only mark Secure when actually served over HTTPS — a Secure cookie is
+    // never sent over plain HTTP, which would log the user out on every request.
+    // The internal server is HTTP behind Nginx; set COOKIE_SECURE=true if you
+    // later add TLS.
+    secure: process.env.COOKIE_SECURE === 'true',
     path: '/',
     expires: new Date(expiresAt),
   });
