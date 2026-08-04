@@ -1,27 +1,17 @@
 // Branch read/create helpers.
 
-import { getServiceClient } from "./supabaseClient";
-import type { Branch, UUID } from "./types";
+import { getDb } from './db';
+import type { Branch, UUID } from './types';
 
 export async function listBranches(): Promise<Branch[]> {
-  const client = getServiceClient();
-  const { data, error } = await client
-    .from("branches")
-    .select("*")
-    .order("name");
-  if (error) throw new Error(error.message);
-  return (data ?? []) as Branch[];
+  const db = getDb();
+  return (await db.selectFrom('branches').selectAll().orderBy('name').execute()) as Branch[];
 }
 
 export async function getBranch(id: UUID): Promise<Branch | null> {
-  const client = getServiceClient();
-  const { data, error } = await client
-    .from("branches")
-    .select("*")
-    .eq("id", id)
-    .maybeSingle();
-  if (error) throw new Error(error.message);
-  return (data as Branch) ?? null;
+  const db = getDb();
+  const row = await db.selectFrom('branches').selectAll().where('id', '=', id).executeTakeFirst();
+  return (row as Branch) ?? null;
 }
 
 /**
@@ -29,46 +19,33 @@ export async function getBranch(id: UUID): Promise<Branch | null> {
  * no match or more than one — used by the MCP tools so Claude can pass names.
  */
 export async function findBranchByName(name: string): Promise<Branch> {
-  const client = getServiceClient();
-  const { data, error } = await client
-    .from("branches")
-    .select("*")
-    .ilike("name", name.trim());
-  if (error) throw new Error(error.message);
-  const rows = (data ?? []) as Branch[];
+  const db = getDb();
+  const rows = (await db
+    .selectFrom('branches')
+    .selectAll()
+    .where('name', 'ilike', name.trim())
+    .execute()) as Branch[];
   if (rows.length === 0) throw new Error(`No branch named "${name}".`);
   if (rows.length > 1) {
-    throw new Error(
-      `"${name}" matches multiple branches: ${rows.map((b) => b.name).join(", ")}.`,
-    );
+    throw new Error(`"${name}" matches multiple branches: ${rows.map((b) => b.name).join(', ')}.`);
   }
   return rows[0]!;
 }
 
 export async function createBranch(name: string): Promise<Branch> {
-  const client = getServiceClient();
-  const { data, error } = await client
-    .from("branches")
-    .insert({ name })
-    .select()
-    .single();
-  if (error) throw new Error(error.message);
-  return data as Branch;
+  const db = getDb();
+  return (await db
+    .insertInto('branches')
+    .values({ name })
+    .returningAll()
+    .executeTakeFirstOrThrow()) as Branch;
 }
 
 /** Make one branch the central/HQ branch, clearing the flag from all others. */
 export async function setBranchAsHq(id: UUID): Promise<void> {
-  const client = getServiceClient();
-  const { error: clearErr } = await client
-    .from("branches")
-    .update({ is_hq: false })
-    .neq("id", id);
-  if (clearErr) throw new Error(clearErr.message);
-  const { error: setErr } = await client
-    .from("branches")
-    .update({ is_hq: true })
-    .eq("id", id);
-  if (setErr) throw new Error(setErr.message);
+  const db = getDb();
+  await db.updateTable('branches').set({ is_hq: false }).where('id', '!=', id).execute();
+  await db.updateTable('branches').set({ is_hq: true }).where('id', '=', id).execute();
 }
 
 export interface UpdateBranchInput {
@@ -77,96 +54,78 @@ export interface UpdateBranchInput {
   distanceHq?: string | null;
 }
 
-export async function updateBranch(
-  id: UUID,
-  patch: UpdateBranchInput,
-): Promise<Branch> {
+export async function updateBranch(id: UUID, patch: UpdateBranchInput): Promise<Branch> {
   const update: Record<string, unknown> = {};
   if (patch.name !== undefined) update.name = patch.name;
   if (patch.branchNo !== undefined) update.branch_no = patch.branchNo;
   if (patch.distanceHq !== undefined) update.distance_hq = patch.distanceHq;
 
-  const client = getServiceClient();
-
+  const db = getDb();
   if (Object.keys(update).length === 0) {
-    const { data, error } = await client.from("branches").select("*").eq("id", id).single();
-    if (error) throw new Error(error.message);
-    return data as Branch;
+    return (await db
+      .selectFrom('branches')
+      .selectAll()
+      .where('id', '=', id)
+      .executeTakeFirstOrThrow()) as Branch;
   }
 
-  const { data, error } = await client
-    .from("branches")
-    .update(update)
-    .eq("id", id)
-    .select()
-    .single();
-  if (error) throw new Error(error.message);
-  return data as Branch;
+  return (await db
+    .updateTable('branches')
+    .set(update)
+    .where('id', '=', id)
+    .returningAll()
+    .executeTakeFirstOrThrow()) as Branch;
 }
 
 /**
  * Hard-delete a branch — allowed only when nothing references it (items point at
  * a branch via a NOT NULL FK, so a non-empty branch cannot be removed safely).
- *
- *
  */
 export async function deleteBranch(id: UUID): Promise<void> {
-  const client = getServiceClient();
+  const db = getDb();
 
-  const { count: itemCount, error: iErr } = await client
-    .from("items")
-    .select("*", { count: "exact", head: true })
-    .eq("branch_id", id);
-  if (iErr) throw new Error(iErr.message);
-  if ((itemCount ?? 0) > 0) {
-    throw new Error(
-      "Cannot delete: this branch still has items. Move or remove them first.",
-    );
+  const items = await db
+    .selectFrom('items')
+    .select((eb) => eb.fn.countAll<string>().as('c'))
+    .where('branch_id', '=', id)
+    .executeTakeFirst();
+  if (Number(items?.c ?? 0) > 0) {
+    throw new Error('Cannot delete: this branch still has items. Move or remove them first.');
   }
 
-  const { count: empCount, error: eErr } = await client
-    .from("employees")
-    .select("*", { count: "exact", head: true })
-    .eq("branch_id", id);
-  if (eErr) throw new Error(eErr.message);
-  if ((empCount ?? 0) > 0) {
-    throw new Error(
-      "Cannot delete: this branch still has employees. Reassign them first.",
-    );
+  const emps = await db
+    .selectFrom('employees')
+    .select((eb) => eb.fn.countAll<string>().as('c'))
+    .where('branch_id', '=', id)
+    .executeTakeFirst();
+  if (Number(emps?.c ?? 0) > 0) {
+    throw new Error('Cannot delete: this branch still has employees. Reassign them first.');
   }
 
-  const { error } = await client.from("branches").delete().eq("id", id);
-  if (error) throw new Error(error.message);
+  await db.deleteFrom('branches').where('id', '=', id).execute();
 }
 
 /** Save a branch's position on the custom map view (fractions 0..1). */
-export async function updateBranchPosition(
-  id: UUID,
-  mapX: number,
-  mapY: number,
-): Promise<Branch> {
-  const client = getServiceClient();
-  const { data, error } = await client
-    .from("branches")
-    .update({ map_x: mapX, map_y: mapY })
-    .eq("id", id)
-    .select()
-    .single();
-  if (error) throw new Error(error.message);
-  return data as Branch;
+export async function updateBranchPosition(id: UUID, mapX: number, mapY: number): Promise<Branch> {
+  const db = getDb();
+  return (await db
+    .updateTable('branches')
+    .set({ map_x: mapX, map_y: mapY })
+    .where('id', '=', id)
+    .returningAll()
+    .executeTakeFirstOrThrow()) as Branch;
 }
 
 /** Item counts per branch (live items only) — used by the dashboard cards. */
 export async function branchItemCounts(): Promise<Record<UUID, number>> {
-  const client = getServiceClient();
-  const { data, error } = await client
-    .from("items")
-    .select("branch_id")
-    .is("deleted_at", null);
-  if (error) throw new Error(error.message);
+  const db = getDb();
+  const rows = await db
+    .selectFrom('items')
+    .select((eb) => ['branch_id', eb.fn.countAll<string>().as('c')])
+    .where('deleted_at', 'is', null)
+    .groupBy('branch_id')
+    .execute();
   const counts: Record<UUID, number> = {};
-  for (const row of (data ?? []) as { branch_id: UUID }[]) {
-    counts[row.branch_id] = (counts[row.branch_id] ?? 0) + 1;
-  }
+  for (const r of rows) counts[r.branch_id] = Number(r.c);
   return counts;
 }

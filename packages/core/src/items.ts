@@ -1,7 +1,7 @@
 // Item CRUD (soft-delete only). All validation + audit logging lives here so
-// every entry point (web now, MCP later) behaves identically.
+// every entry point (web + MCP) behaves identically.
 
-import { getServiceClient } from './supabaseClient';
+import { getDb } from './db';
 import { validateProperties } from './itemTypes';
 import { writeAudit, shallowDiff } from './audit';
 import type { ActorContext, Item, ItemStatus, UUID } from './types';
@@ -16,23 +16,21 @@ export interface AddItemInput {
 
 export async function addItem(input: AddItemInput, ctx: ActorContext): Promise<Item> {
   const properties = validateProperties(input.type, input.properties ?? {});
-  const client = getServiceClient();
+  const db = getDb();
 
-  const { data, error } = await client
-    .from('items')
-    .insert({
+  const item = (await db
+    .insertInto('items')
+    .values({
       type: input.type,
       branch_id: input.branch_id,
       assigned_to: input.assigned_to ?? null,
       status: input.status ?? 'active',
-      properties,
+      properties: JSON.stringify(properties),
       created_by: ctx.actorId,
     })
-    .select()
-    .single();
-  if (error) throw new Error(error.message);
+    .returningAll()
+    .executeTakeFirstOrThrow()) as Item;
 
-  const item = data as Item;
   await writeAudit({
     item_id: item.id,
     action: 'create',
@@ -59,26 +57,24 @@ export async function updateItem(
   patch: UpdateItemInput,
   ctx: ActorContext,
 ): Promise<Item> {
-  const client = getServiceClient();
+  const db = getDb();
   const before = await getItem(id);
   if (!before) throw new Error(`Item not found: ${id}`);
 
   const update: Record<string, unknown> = {};
   if (patch.status !== undefined) update.status = patch.status;
   if (patch.properties !== undefined) {
-    update.properties = validateProperties(before.type, patch.properties);
+    update.properties = JSON.stringify(validateProperties(before.type, patch.properties));
   }
   if (Object.keys(update).length === 0) return before;
 
-  const { data, error } = await client
-    .from('items')
-    .update(update)
-    .eq('id', id)
-    .select()
-    .single();
-  if (error) throw new Error(error.message);
+  const after = (await db
+    .updateTable('items')
+    .set(update)
+    .where('id', '=', id)
+    .returningAll()
+    .executeTakeFirstOrThrow()) as Item;
 
-  const after = data as Item;
   await writeAudit({
     item_id: id,
     action: 'update',
@@ -93,18 +89,17 @@ export async function updateItem(
 
 /** Soft delete — sets deleted_at, never removes the row. */
 export async function softDeleteItem(id: UUID, ctx: ActorContext): Promise<Item> {
-  const client = getServiceClient();
+  const db = getDb();
   const before = await getItem(id);
   if (!before) throw new Error(`Item not found: ${id}`);
   if (before.deleted_at) return before; // already deleted; idempotent
 
-  const { data, error } = await client
-    .from('items')
-    .update({ deleted_at: new Date().toISOString() })
-    .eq('id', id)
-    .select()
-    .single();
-  if (error) throw new Error(error.message);
+  const after = (await db
+    .updateTable('items')
+    .set({ deleted_at: new Date().toISOString() })
+    .where('id', '=', id)
+    .returningAll()
+    .executeTakeFirstOrThrow()) as Item;
 
   await writeAudit({
     item_id: id,
@@ -113,27 +108,25 @@ export async function softDeleteItem(id: UUID, ctx: ActorContext): Promise<Item>
     from_branch_id: before.branch_id,
     from_employee_id: before.assigned_to,
   });
-  return data as Item;
+  return after;
 }
 
 /** Restore a soft-deleted item (undo). */
 export async function restoreItem(id: UUID, ctx: ActorContext): Promise<Item> {
-  const client = getServiceClient();
-  const { data, error } = await client
-    .from('items')
-    .update({ deleted_at: null })
-    .eq('id', id)
-    .select()
-    .single();
-  if (error) throw new Error(error.message);
+  const db = getDb();
+  const after = (await db
+    .updateTable('items')
+    .set({ deleted_at: null })
+    .where('id', '=', id)
+    .returningAll()
+    .executeTakeFirstOrThrow()) as Item;
   await writeAudit({ item_id: id, action: 'update', actor: ctx.actorId, diff: { restored: true } });
-  return data as Item;
+  return after;
 }
 
 /** Fetch a single item regardless of deleted state (used internally + history view). */
 export async function getItem(id: UUID): Promise<Item | null> {
-  const client = getServiceClient();
-  const { data, error } = await client.from('items').select('*').eq('id', id).maybeSingle();
-  if (error) throw new Error(error.message);
-  return (data as Item) ?? null;
+  const db = getDb();
+  const row = await db.selectFrom('items').selectAll().where('id', '=', id).executeTakeFirst();
+  return (row as Item) ?? null;
 }

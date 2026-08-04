@@ -1,7 +1,7 @@
 // Audit-log helpers. audit_log is append-only: every create/update/soft_delete/
 // transfer writes exactly one row here. This is the item history.
 
-import { getServiceClient } from './supabaseClient';
+import { getDb } from './db';
 import type { AuditAction, AuditLog, UUID } from './types';
 
 export interface AuditEntryInput {
@@ -16,30 +16,31 @@ export interface AuditEntryInput {
 }
 
 export async function writeAudit(entry: AuditEntryInput): Promise<void> {
-  const client = getServiceClient();
-  const { error } = await client.from('audit_log').insert({
-    item_id: entry.item_id,
-    action: entry.action,
-    actor: entry.actor,
-    from_branch_id: entry.from_branch_id ?? null,
-    to_branch_id: entry.to_branch_id ?? null,
-    from_employee_id: entry.from_employee_id ?? null,
-    to_employee_id: entry.to_employee_id ?? null,
-    diff: entry.diff ?? null,
-  });
-  if (error) throw new Error(`Failed to write audit entry: ${error.message}`);
+  const db = getDb();
+  await db
+    .insertInto('audit_log')
+    .values({
+      item_id: entry.item_id,
+      action: entry.action,
+      actor: entry.actor,
+      from_branch_id: entry.from_branch_id ?? null,
+      to_branch_id: entry.to_branch_id ?? null,
+      from_employee_id: entry.from_employee_id ?? null,
+      to_employee_id: entry.to_employee_id ?? null,
+      diff: entry.diff ? JSON.stringify(entry.diff) : null,
+    })
+    .execute();
 }
 
 /** Full history for one item, newest first. */
 export async function listAuditForItem(itemId: UUID): Promise<AuditLog[]> {
-  const client = getServiceClient();
-  const { data, error } = await client
-    .from('audit_log')
-    .select('*')
-    .eq('item_id', itemId)
-    .order('created_at', { ascending: false });
-  if (error) throw new Error(error.message);
-  return (data ?? []) as AuditLog[];
+  const db = getDb();
+  return (await db
+    .selectFrom('audit_log')
+    .selectAll()
+    .where('item_id', '=', itemId)
+    .orderBy('created_at', 'desc')
+    .execute()) as AuditLog[];
 }
 
 /**

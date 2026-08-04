@@ -12,13 +12,16 @@ export const apiHandler = {
   async fetch(request: Request, env: Env): Promise<Response> {
     if (request.method !== 'POST') return json({ error: 'Use POST for /mcp.' }, 405);
 
-    if (!env.SUPABASE_URL || !env.SUPABASE_SERVICE_ROLE_KEY || !env.ADMIN_ACTOR_ID) {
+    // NOTE: MCP is parked during the Postgres migration. Core now uses a Node
+    // `pg` connection (DATABASE_URL) and won't run on Cloudflare Workers as-is;
+    // this server will be re-homed (local process or internal container) later.
+    if (!env.DATABASE_URL || !env.ADMIN_ACTOR_ID) {
       return json(
         { jsonrpc: '2.0', id: null, error: { code: -32002, message: 'Server not configured.' } },
         500,
       );
     }
-    configureCore({ url: env.SUPABASE_URL, serviceRoleKey: env.SUPABASE_SERVICE_ROLE_KEY });
+    configureCore({ connectionString: env.DATABASE_URL });
 
     let body: unknown;
     try {

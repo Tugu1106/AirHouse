@@ -1,17 +1,22 @@
 // Employee read/create helpers.
 
-import { getServiceClient } from './supabaseClient';
+import { getDb } from './db';
 import { transferItem } from './transfers';
 import type { ActorContext, Employee, EmployeeStatus, UUID } from './types';
 
+// The employees table no longer stores a login id (auth lives in `users`), but
+// the public Employee type still carries user_id as a soon-to-be-removed vestige
+// — populate it as null until the web is moved to the new auth in Stage 3.
+type EmployeeRow = Omit<Employee, 'user_id'>;
+const toEmployee = (row: EmployeeRow): Employee => ({ ...row, user_id: null });
+
 export async function listEmployees(branchId?: UUID, includeDeleted = false): Promise<Employee[]> {
-  const client = getServiceClient();
-  let query = client.from('employees').select('*').order('name');
-  if (!includeDeleted) query = query.is('deleted_at', null);
-  if (branchId) query = query.eq('branch_id', branchId);
-  const { data, error } = await query;
-  if (error) throw new Error(error.message);
-  return (data ?? []) as Employee[];
+  const db = getDb();
+  let q = db.selectFrom('employees').selectAll().orderBy('name');
+  if (!includeDeleted) q = q.where('deleted_at', 'is', null);
+  if (branchId) q = q.where('branch_id', '=', branchId);
+  const rows = (await q.execute()) as EmployeeRow[];
+  return rows.map(toEmployee);
 }
 
 /**
@@ -19,32 +24,31 @@ export async function listEmployees(branchId?: UUID, includeDeleted = false): Pr
  * Throws a clear error on no match or ambiguity — used by the MCP tools.
  */
 export async function findEmployeeByName(name: string, branchId?: UUID): Promise<Employee> {
-  const client = getServiceClient();
-  let query = client.from('employees').select('*').ilike('name', name.trim()).is('deleted_at', null);
-  if (branchId) query = query.eq('branch_id', branchId);
-  const { data, error } = await query;
-  if (error) throw new Error(error.message);
-  const rows = (data ?? []) as Employee[];
+  const db = getDb();
+  let q = db
+    .selectFrom('employees')
+    .selectAll()
+    .where('name', 'ilike', name.trim())
+    .where('deleted_at', 'is', null);
+  if (branchId) q = q.where('branch_id', '=', branchId);
+  const rows = (await q.execute()) as EmployeeRow[];
   if (rows.length === 0) throw new Error(`No employee named "${name}".`);
   if (rows.length > 1) {
-    throw new Error(
-      `"${name}" matches multiple employees. Specify the branch to disambiguate.`,
-    );
+    throw new Error(`"${name}" matches multiple employees. Specify the branch to disambiguate.`);
   }
-  return rows[0]!;
+  return toEmployee(rows[0]!);
 }
 
-/** Resolve an employee by their login email (case-insensitive). */
+/** Resolve an employee by their work email (case-insensitive). */
 export async function findEmployeeByEmail(email: string): Promise<Employee | null> {
-  const client = getServiceClient();
-  const { data, error } = await client
-    .from('employees')
-    .select('*')
-    .ilike('email', email.trim())
-    .is('deleted_at', null)
-    .maybeSingle();
-  if (error) throw new Error(error.message);
-  return (data as Employee) ?? null;
+  const db = getDb();
+  const row = (await db
+    .selectFrom('employees')
+    .selectAll()
+    .where('email', 'ilike', email.trim())
+    .where('deleted_at', 'is', null)
+    .executeTakeFirst()) as EmployeeRow | undefined;
+  return row ? toEmployee(row) : null;
 }
 
 export interface CreateEmployeeInput {
@@ -57,10 +61,10 @@ export interface CreateEmployeeInput {
 }
 
 export async function createEmployee(input: CreateEmployeeInput): Promise<Employee> {
-  const client = getServiceClient();
-  const { data, error } = await client
-    .from('employees')
-    .insert({
+  const db = getDb();
+  const row = (await db
+    .insertInto('employees')
+    .values({
       name: input.name,
       branch_id: input.branchId ?? null,
       phone: input.phone ?? null,
@@ -68,10 +72,9 @@ export async function createEmployee(input: CreateEmployeeInput): Promise<Employ
       status: input.status ?? 'active',
       email: input.email ?? null,
     })
-    .select()
-    .single();
-  if (error) throw new Error(error.message);
-  return data as Employee;
+    .returningAll()
+    .executeTakeFirstOrThrow()) as EmployeeRow;
+  return toEmployee(row);
 }
 
 // --- login status ----------------------------------------------------------
@@ -86,34 +89,32 @@ export interface LoginStatus {
 }
 
 /**
- * Read sign-in status for every auth user, keyed by user_id. Pair with an
- * employee's user_id to tell who has logged in vs. who was only invited.
+ * Sign-in status for every worker login, keyed by employee_id. Pair with an
+ * employee to tell who has logged in vs. who was only invited.
  */
 export async function listLoginStatus(): Promise<Record<string, LoginStatus>> {
-  const client = getServiceClient();
+  const db = getDb();
+  const rows = await db
+    .selectFrom('users')
+    .select(['employee_id', 'last_sign_in_at', 'must_reset'])
+    .where('employee_id', 'is not', null)
+    .execute();
   const map: Record<string, LoginStatus> = {};
-  const perPage = 100;
-  for (let page = 1; ; page++) {
-    const { data, error } = await client.auth.admin.listUsers({ page, perPage });
-    if (error) throw new Error(error.message);
-    const users = data.users ?? [];
-    for (const u of users) {
-      map[u.id] = {
-        signedIn: !!u.last_sign_in_at,
-        signedInAt: u.last_sign_in_at ?? null,
-        mustReset: !!(u.user_metadata as { must_reset?: boolean } | undefined)?.must_reset,
-      };
-    }
-    if (users.length < perPage) break;
+  for (const r of rows) {
+    if (!r.employee_id) continue;
+    map[r.employee_id] = {
+      signedIn: r.last_sign_in_at != null,
+      signedInAt: r.last_sign_in_at,
+      mustReset: r.must_reset,
+    };
   }
   return map;
 }
 
-// --- self-service login provisioning --------------------------------------
+// --- self-service login provisioning ---------------------------------------
 
-function genTempPassword(): string {
-  // Readable characters (no look-alikes), 10 chars. crypto is a global in both
-  // Node 20+ and Cloudflare Workers; cast so it type-checks under either config.
+export function genTempPassword(): string {
+  // Readable characters (no look-alikes), 10 chars.
   const chars = 'ABCDEFGHJKMNPQRSTUVWXYZ23456789abcdefghijkmnpqrstuvwxyz';
   const bytes = new Uint8Array(10);
   (globalThis as unknown as { crypto: { getRandomValues: (a: Uint8Array) => void } }).crypto.getRandomValues(bytes);
@@ -121,54 +122,16 @@ function genTempPassword(): string {
 }
 
 /**
- * Create a login for an employee: makes a Supabase Auth user with a random temp
- * password (which the worker is forced to change on first login) and links it
- * to the employee. Returns the temp password to share. Throws if a login for
- * that email already exists.
+ * Create a read-only login for an employee. Rewritten with custom auth in
+ * Stage 3 (bcrypt hash into the `users` table).
  */
-export async function provisionEmployeeLogin(employeeId: UUID, email: string): Promise<string> {
-  const client = getServiceClient();
-  const tempPassword = genTempPassword();
-  const { data, error } = await client.auth.admin.createUser({
-    email: email.trim(),
-    password: tempPassword,
-    email_confirm: true,
-    user_metadata: { must_reset: true, role: 'worker', employee_id: employeeId },
-  });
-  if (error) {
-    throw new Error(
-      /registered|exists/i.test(error.message)
-        ? 'A login for this email already exists. Use "reset password" instead.'
-        : error.message,
-    );
-  }
-  const { error: linkErr } = await client
-    .from('employees')
-    .update({ email: email.trim(), user_id: data.user.id })
-    .eq('id', employeeId);
-  if (linkErr) throw new Error(linkErr.message);
-  return tempPassword;
+export async function provisionEmployeeLogin(_employeeId: UUID, _email: string): Promise<string> {
+  throw new Error('provisionEmployeeLogin is implemented in Stage 3 (custom auth).');
 }
 
-/** Reset an existing employee login to a new temp password (forces re-change). */
-export async function resetEmployeeLogin(employeeId: UUID): Promise<string> {
-  const client = getServiceClient();
-  const { data: emp, error: empErr } = await client
-    .from('employees')
-    .select('user_id')
-    .eq('id', employeeId)
-    .single();
-  if (empErr) throw new Error(empErr.message);
-  const userId = (emp as { user_id: string | null }).user_id;
-  if (!userId) throw new Error('This employee has no login yet. Create one first.');
-
-  const tempPassword = genTempPassword();
-  const { error } = await client.auth.admin.updateUserById(userId, {
-    password: tempPassword,
-    user_metadata: { must_reset: true, role: 'worker', employee_id: employeeId },
-  });
-  if (error) throw new Error(error.message);
-  return tempPassword;
+/** Reset an employee login to a new temp password. Implemented in Stage 3. */
+export async function resetEmployeeLogin(_employeeId: UUID): Promise<string> {
+  throw new Error('resetEmployeeLogin is implemented in Stage 3 (custom auth).');
 }
 
 export interface UpdateEmployeeInput {
@@ -181,48 +144,33 @@ export interface UpdateEmployeeInput {
 }
 
 /**
- * Soft-delete an employee: unassign each of their live items (recording the
- * change in item history), revoke their login, and mark the row deleted. The
- * row is kept so audit_log (who owned an item, and when) still resolves their
- * name.
+ * Soft-delete an employee: unassign each of their live items (recording it in
+ * item history), revoke their login (delete the users row — cascades sessions),
+ * and mark the row deleted. The row is kept so audit_log still resolves names.
  */
 export async function deleteEmployee(id: UUID, ctx: ActorContext): Promise<void> {
-  const client = getServiceClient();
-
-  const { data: emp, error: empErr } = await client
-    .from('employees')
-    .select('user_id')
-    .eq('id', id)
-    .single();
-  if (empErr) throw new Error(empErr.message);
+  const db = getDb();
 
   // Unassign each live item via a transfer, so history records "from X → nobody".
-  const { data: items, error: itemsErr } = await client
-    .from('items')
+  const items = await db
+    .selectFrom('items')
     .select('id')
-    .eq('assigned_to', id)
-    .is('deleted_at', null);
-  if (itemsErr) throw new Error(itemsErr.message);
-  for (const it of (items ?? []) as { id: UUID }[]) {
+    .where('assigned_to', '=', id)
+    .where('deleted_at', 'is', null)
+    .execute();
+  for (const it of items) {
     await transferItem(it.id, { toEmployeeId: null, reason: 'employee_deleted' }, ctx);
   }
 
-  // Revoke their login (best-effort — the row stays for history).
-  const userId = (emp as { user_id: string | null }).user_id;
-  if (userId) {
-    try {
-      await client.auth.admin.deleteUser(userId);
-    } catch {
-      /* ignore — the auth user may already be gone */
-    }
-  }
+  // Revoke their login (sessions cascade on delete).
+  await db.deleteFrom('users').where('employee_id', '=', id).execute();
 
   // Clear email too so it frees the unique index and can be reused later.
-  const { error } = await client
-    .from('employees')
-    .update({ deleted_at: new Date().toISOString(), user_id: null, email: null })
-    .eq('id', id);
-  if (error) throw new Error(error.message);
+  await db
+    .updateTable('employees')
+    .set({ deleted_at: new Date().toISOString(), email: null })
+    .where('id', '=', id)
+    .execute();
 }
 
 export async function updateEmployee(id: UUID, patch: UpdateEmployeeInput): Promise<Employee> {
@@ -238,22 +186,23 @@ export async function updateEmployee(id: UUID, patch: UpdateEmployeeInput): Prom
     update.active = !['fired', 'resigned'].includes(patch.status);
   }
 
-  const client = getServiceClient();
+  const db = getDb();
 
-  // Nothing to change — return the current row instead of running an empty
-  // update (Postgres errors on `.update({}).single()`).
+  // Nothing to change — return the current row.
   if (Object.keys(update).length === 0) {
-    const { data, error } = await client.from('employees').select('*').eq('id', id).single();
-    if (error) throw new Error(error.message);
-    return data as Employee;
+    const row = (await db
+      .selectFrom('employees')
+      .selectAll()
+      .where('id', '=', id)
+      .executeTakeFirstOrThrow()) as EmployeeRow;
+    return toEmployee(row);
   }
 
-  const { data, error } = await client
-    .from('employees')
-    .update(update)
-    .eq('id', id)
-    .select()
-    .single();
-  if (error) throw new Error(error.message);
-  return data as Employee;
+  const row = (await db
+    .updateTable('employees')
+    .set(update)
+    .where('id', '=', id)
+    .returningAll()
+    .executeTakeFirstOrThrow()) as EmployeeRow;
+  return toEmployee(row);
 }

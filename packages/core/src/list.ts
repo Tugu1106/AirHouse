@@ -1,7 +1,7 @@
 // Listing / filtering / sorting for items, plus a joined shape convenient for
 // the UI (branch name + employee name inlined).
 
-import { getServiceClient } from './supabaseClient';
+import { getDb } from './db';
 import type { Item, ItemStatus, UUID } from './types';
 
 export interface ItemFilters {
@@ -24,32 +24,50 @@ export interface ItemWithRelations extends Item {
   assignee: { id: UUID; name: string } | null;
 }
 
+// One item row joined to its branch + assignee names.
+type JoinedRow = Item & { branch_name: string | null; assignee_name: string | null };
+
+function toRelations(r: JoinedRow): ItemWithRelations {
+  const { branch_name, assignee_name, ...item } = r;
+  return {
+    ...item,
+    branch: branch_name != null ? { id: item.branch_id, name: branch_name } : null,
+    assignee:
+      item.assigned_to != null && assignee_name != null
+        ? { id: item.assigned_to, name: assignee_name }
+        : null,
+  };
+}
+
+const SORT_COLUMNS = ['created_at', 'updated_at', 'type', 'status'] as const;
+
 export async function listItems(filters: ItemFilters = {}): Promise<ItemWithRelations[]> {
-  const client = getServiceClient();
+  const db = getDb();
 
-  let query = client
-    .from('items')
-    .select('*, branch:branches!items_branch_id_fkey(id,name), assignee:employees!items_assigned_to_fkey(id,name)');
+  let query = db
+    .selectFrom('items as i')
+    .leftJoin('branches as b', 'b.id', 'i.branch_id')
+    .leftJoin('employees as e', 'e.id', 'i.assigned_to')
+    .selectAll('i')
+    .select(['b.name as branch_name', 'e.name as assignee_name']);
 
-  if (!filters.includeDeleted) query = query.is('deleted_at', null);
-  if (filters.branchId) query = query.eq('branch_id', filters.branchId);
-  if (filters.type) query = query.eq('type', filters.type);
-  if (filters.status) query = query.eq('status', filters.status);
-  if (filters.assignedTo === 'unassigned') query = query.is('assigned_to', null);
-  else if (filters.assignedTo) query = query.eq('assigned_to', filters.assignedTo);
+  if (!filters.includeDeleted) query = query.where('i.deleted_at', 'is', null);
+  if (filters.branchId) query = query.where('i.branch_id', '=', filters.branchId);
+  if (filters.type) query = query.where('i.type', '=', filters.type);
+  if (filters.status) query = query.where('i.status', '=', filters.status);
+  if (filters.assignedTo === 'unassigned') query = query.where('i.assigned_to', 'is', null);
+  else if (filters.assignedTo) query = query.where('i.assigned_to', '=', filters.assignedTo);
 
-  const sortBy = filters.sortBy ?? 'created_at';
-  const ascending = (filters.sortDir ?? 'desc') === 'asc';
-  query = query.order(sortBy, { ascending });
+  const sortBy = SORT_COLUMNS.includes(filters.sortBy as (typeof SORT_COLUMNS)[number])
+    ? (filters.sortBy as (typeof SORT_COLUMNS)[number])
+    : 'created_at';
+  const dir = (filters.sortDir ?? 'desc') === 'asc' ? 'asc' : 'desc';
+  query = query.orderBy(`i.${sortBy}`, dir);
 
-  const { data, error } = await query;
-  if (error) throw new Error(error.message);
+  let rows = (await query.execute()).map((r) => toRelations(r as unknown as JoinedRow));
 
-  let rows = (data ?? []) as unknown as ItemWithRelations[];
-
-  // Free-text search across the type-specific properties (serial, model, etc.).
-  // Done in JS so it works reliably regardless of JSONB shape; dataset is small
-  // (usage is infrequent), so this is cheap.
+  // Free-text search across the type-specific properties (serial, model, etc.),
+  // done in JS so it works regardless of JSONB shape (dataset is small).
   const term = filters.search?.trim().toLowerCase();
   if (term) {
     rows = rows.filter((r) => {
@@ -66,12 +84,14 @@ export async function listItems(filters: ItemFilters = {}): Promise<ItemWithRela
 }
 
 export async function getItemWithRelations(id: UUID): Promise<ItemWithRelations | null> {
-  const client = getServiceClient();
-  const { data, error } = await client
-    .from('items')
-    .select('*, branch:branches!items_branch_id_fkey(id,name), assignee:employees!items_assigned_to_fkey(id,name)')
-    .eq('id', id)
-    .maybeSingle();
-  if (error) throw new Error(error.message);
-  return (data as unknown as ItemWithRelations) ?? null;
+  const db = getDb();
+  const row = await db
+    .selectFrom('items as i')
+    .leftJoin('branches as b', 'b.id', 'i.branch_id')
+    .leftJoin('employees as e', 'e.id', 'i.assigned_to')
+    .selectAll('i')
+    .select(['b.name as branch_name', 'e.name as assignee_name'])
+    .where('i.id', '=', id)
+    .executeTakeFirst();
+  return row ? toRelations(row as unknown as JoinedRow) : null;
 }

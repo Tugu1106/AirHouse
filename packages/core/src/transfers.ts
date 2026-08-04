@@ -2,7 +2,7 @@
 // branch. A transfer is a first-class action recorded in audit_log with
 // from_/to_ employee and branch, not a plain edit.
 
-import { getServiceClient } from './supabaseClient';
+import { getDb } from './db';
 import { getItem } from './items';
 import { writeAudit } from './audit';
 import type { ActorContext, Item, UUID } from './types';
@@ -36,15 +36,13 @@ export async function transferItem(
   if (changingEmployee) update.assigned_to = input.toEmployeeId ?? null;
   if (changingBranch) update.branch_id = input.toBranchId;
 
-  const client = getServiceClient();
-  const { data, error } = await client
-    .from('items')
-    .update(update)
-    .eq('id', id)
-    .select()
-    .single();
-  if (error) throw new Error(error.message);
-  const after = data as Item;
+  const db = getDb();
+  const after = (await db
+    .updateTable('items')
+    .set(update)
+    .where('id', '=', id)
+    .returningAll()
+    .executeTakeFirstOrThrow()) as Item;
 
   await writeAudit({
     item_id: id,
