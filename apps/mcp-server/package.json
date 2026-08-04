@@ -3,19 +3,20 @@
   "version": "0.1.0",
   "private": true,
   "type": "module",
+  "bin": {
+    "airhouse-mcp": "dist/airhouse-mcp.cjs"
+  },
   "scripts": {
-    "dev": "wrangler dev",
-    "deploy": "wrangler deploy",
+    "build": "esbuild src/stdio.ts --bundle --platform=node --format=cjs --target=node22 --outfile=dist/airhouse-mcp.cjs --external:pg-native --external:cloudflare:sockets",
+    "start": "node dist/airhouse-mcp.cjs",
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
-    "@airlink/core": "workspace:*",
-    "@cloudflare/workers-oauth-provider": "^0.8.2",
-    "zod": "^3.24.1"
+    "@airlink/core": "workspace:*"
   },
   "devDependencies": {
-    "@cloudflare/workers-types": "^4.20241127.0",
-    "typescript": "^5.7.2",
-    "wrangler": "^4.113.0"
+    "@types/node": "^22.10.0",
+    "esbuild": "^0.24.2",
+    "typescript": "^5.7.2"
   }
 }

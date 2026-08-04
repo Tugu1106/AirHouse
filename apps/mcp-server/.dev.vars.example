@@ -1,5 +1,0 @@
-# Copy to `.dev.vars` (gitignored) for local `wrangler dev`.
-SUPABASE_URL="https://YOUR-PROJECT-ref.supabase.co"
-SUPABASE_SERVICE_ROLE_KEY="your-service-role-secret-key"
-ADMIN_ACTOR_ID="your-supabase-auth-user-uuid"
-OAUTH_PASSWORD="pick-an-admin-password"

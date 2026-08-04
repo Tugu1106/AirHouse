@@ -107,6 +107,17 @@ export async function deleteSession(sessionId: string): Promise<void> {
   await getDb().deleteFrom('sessions').where('id', '=', sessionId).execute();
 }
 
+/** The id of an admin user (oldest), for tools that act as the admin (MCP). */
+export async function getAdminActorId(): Promise<string | null> {
+  const row = await getDb()
+    .selectFrom('users')
+    .select('id')
+    .where('role', '=', 'admin')
+    .orderBy('created_at')
+    .executeTakeFirst();
+  return row?.id ?? null;
+}
+
 /** Set a user's own password and clear the forced-reset flag. */
 export async function setUserPassword(userId: UUID, newPassword: string): Promise<void> {
   await getDb()
