@@ -161,22 +161,37 @@ export async function resetEmployeeLogin(employeeId: UUID): Promise<string> {
   return temp;
 }
 
-/** Create (or reset the password of) the admin user. Idempotent by email. */
-export async function seedAdmin(email: string, password: string): Promise<void> {
+/**
+ * Ensure an admin login exists. By default create-only (never clobbers an
+ * existing admin whose password may have been changed) — used by startup
+ * auto-seed. Pass resetIfExists to intentionally reset the password.
+ */
+export async function seedAdmin(
+  email: string,
+  password: string,
+  opts?: { resetIfExists?: boolean },
+): Promise<'created' | 'updated' | 'exists'> {
   const db = getDb();
   const e = email.trim();
-  const password_hash = await hashPassword(password);
   const existing = await db.selectFrom('users').select('id').where('email', 'ilike', e).executeTakeFirst();
   if (existing) {
+    if (!opts?.resetIfExists) return 'exists';
     await db
       .updateTable('users')
-      .set({ password_hash, role: 'admin', must_reset: false })
+      .set({ password_hash: await hashPassword(password), role: 'admin', must_reset: false })
       .where('id', '=', existing.id)
       .execute();
-  } else {
-    await db
-      .insertInto('users')
-      .values({ email: e, password_hash, role: 'admin', must_reset: false, employee_id: null })
-      .execute();
+    return 'updated';
   }
+  await db
+    .insertInto('users')
+    .values({
+      email: e,
+      password_hash: await hashPassword(password),
+      role: 'admin',
+      must_reset: false,
+      employee_id: null,
+    })
+    .execute();
+  return 'created';
 }

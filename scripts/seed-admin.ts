@@ -14,8 +14,8 @@ async function main() {
     );
     process.exit(1);
   }
-  await seedAdmin(email, password);
-  console.log(`✓ Admin ready: ${email}`);
+  const result = await seedAdmin(email, password, { resetIfExists: true });
+  console.log(`✓ Admin ${result}: ${email}`);
   process.exit(0);
 }
 
