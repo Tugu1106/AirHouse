@@ -4,7 +4,7 @@
   "private": true,
   "packageManager": "pnpm@11.16.0",
   "engines": {
-    "node": ">=20"
+    "node": ">=22"
   },
   "scripts": {
     "dev": "pnpm --filter @airlink/web dev",
@@ -12,12 +12,13 @@
     "start": "pnpm --filter @airlink/web start",
     "lint": "pnpm --filter @airlink/web lint",
     "typecheck": "pnpm -r typecheck",
-    "db:push": "supabase db push",
-    "db:new": "supabase migration new",
-    "db:diff": "supabase db diff"
+    "db:up": "docker compose up -d",
+    "db:down": "docker compose down",
+    "db:reset": "docker compose down -v && docker compose up -d",
+    "seed:admin": "tsx scripts/seed-admin.ts",
+    "smoke": "tsx scripts/smoke-core.ts && tsx scripts/smoke-auth.ts"
   },
   "devDependencies": {
-    "supabase": "^2.109.1",
     "tsx": "^4.23.5",
     "typescript": "^5.7.2"
   }

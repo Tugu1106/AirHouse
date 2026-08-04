@@ -11,8 +11,6 @@
   },
   "dependencies": {
     "@airlink/core": "workspace:*",
-    "@supabase/ssr": "^0.5.2",
-    "@supabase/supabase-js": "^2.48.0",
     "@xyflow/react": "^12.11.2",
     "exceljs": "^4.4.0",
     "leaflet": "^1.9.4",
