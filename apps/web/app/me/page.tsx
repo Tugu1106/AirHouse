@@ -54,8 +54,8 @@ export default async function MePage() {
       <header className="sticky top-0 z-40 border-b border-slate-800/80 bg-[#0b1120]/80 backdrop-blur">
         <div className="mx-auto flex max-w-3xl items-center gap-3 px-6 py-3">
           {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img src="/logo.png" alt="Airlink" className="h-7 w-7 rounded-md object-cover" />
-          <span className="text-base font-semibold text-white">Airlink · My profile</span>
+          <img src="/logo.png" alt="Airlink Assets" className="h-12 w-auto" />
+          <span className="text-base font-semibold text-white">My profile</span>
           <form action={signOutAction} className="ml-auto">
             <button className="btn-ghost">Sign out</button>
           </form>

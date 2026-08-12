@@ -27,10 +27,9 @@ export function AppShell({ children }: { children: React.ReactNode }) {
     <div className="min-h-screen">
       <header className="sticky top-0 z-40 border-b border-slate-800/80 bg-[#0b1120]/80 backdrop-blur">
         <div className="mx-auto flex max-w-7xl items-center gap-4 px-6 py-3">
-          <Link href="/map" className="flex items-center gap-2 text-base font-semibold text-white">
+          <Link href="/map" aria-label="Airlink Assets" className="shrink-0">
             {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img src="/logo.png" alt="Airlink" className="h-7 w-7 rounded-md object-cover" />
-            Airlink Assets
+            <img src="/logo.png" alt="Airlink Assets" className="h-12 w-auto" />
           </Link>
 
           <nav className="flex items-center gap-1 text-sm">
