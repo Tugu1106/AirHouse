@@ -32,7 +32,7 @@ const ts = (iso: string) => new Date(iso).toLocaleString('sv-SE');
 
 function terminalLine(r: ActivityRow): string {
   const verb = (ACTION_LABEL[r.action] ?? r.action).toLowerCase(); // created / updated / ...
-  const [kind, ...rest] = r.target.split(' · ');
+  const [kind = '', ...rest] = r.target.split(' · ');
   const name = rest.join(' · ');
   const thing = name ? `${kind.toLowerCase()} ${name}` : kind.toLowerCase();
   return `${ts(r.when)}  ${r.actor} ${verb} ${thing}${r.detail ? ` — ${r.detail}` : ''}`;
