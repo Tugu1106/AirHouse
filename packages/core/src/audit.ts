@@ -1,6 +1,7 @@
 // Audit-log helpers. audit_log is append-only: every create/update/soft_delete/
 // transfer writes exactly one row here. This is the item history.
 
+import { sql } from 'kysely';
 import { getDb } from './db';
 import type { AuditAction, AuditLog, UUID } from './types';
 
@@ -41,6 +42,48 @@ export async function listAuditForItem(itemId: UUID): Promise<AuditLog[]> {
     .where('item_id', '=', itemId)
     .orderBy('created_at', 'desc')
     .execute()) as AuditLog[];
+}
+
+export interface ActivityEntry extends AuditLog {
+  /** Email of the admin who performed the action (resolved from actor). */
+  actor_email: string | null;
+  item_type: string | null;
+  item_name: string | null;
+}
+
+/**
+ * Global activity feed — every logged mutation (create/update/transfer/delete),
+ * newest first, with the acting admin's email and the target item resolved.
+ * Powers the read-only admin Activity Log page. Only admins can mutate, so this
+ * is inherently a log of admin actions, attributed per actor.
+ */
+export async function listActivity(limit = 300): Promise<ActivityEntry[]> {
+  const db = getDb();
+  const rows = await db
+    .selectFrom('audit_log as a')
+    .leftJoin('users as u', 'u.id', 'a.actor')
+    .leftJoin('items as i', 'i.id', 'a.item_id')
+    .select([
+      'a.id',
+      'a.item_id',
+      'a.action',
+      'a.actor',
+      'a.from_branch_id',
+      'a.to_branch_id',
+      'a.from_employee_id',
+      'a.to_employee_id',
+      'a.diff',
+      'a.created_at',
+      'u.email as actor_email',
+      'i.type as item_type',
+      sql<string | null>`coalesce(i.properties->>'system_name', i.properties->>'model', i.properties->>'serial')`.as(
+        'item_name',
+      ),
+    ])
+    .orderBy('a.created_at', 'desc')
+    .limit(limit)
+    .execute();
+  return rows as unknown as ActivityEntry[];
 }
 
 /**
