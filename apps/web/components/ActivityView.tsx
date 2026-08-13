@@ -31,11 +31,11 @@ const ACTION_STYLE: Record<string, string> = {
 const ts = (iso: string) => new Date(iso).toLocaleString('sv-SE');
 
 function terminalLine(r: ActivityRow): string {
-  const action = (ACTION_LABEL[r.action] ?? r.action).toUpperCase().padEnd(11);
-  const entity = r.entity.padEnd(8);
-  return `${ts(r.when)}  ${r.actor.padEnd(24)}  ${action}  ${entity}  ${r.target}${
-    r.detail ? `  -- ${r.detail}` : ''
-  }`;
+  const verb = (ACTION_LABEL[r.action] ?? r.action).toLowerCase(); // created / updated / ...
+  const [kind, ...rest] = r.target.split(' · ');
+  const name = rest.join(' · ');
+  const thing = name ? `${kind.toLowerCase()} ${name}` : kind.toLowerCase();
+  return `${ts(r.when)}  ${r.actor} ${verb} ${thing}${r.detail ? ` — ${r.detail}` : ''}`;
 }
 
 export function ActivityView({ rows }: { rows: ActivityRow[] }) {
