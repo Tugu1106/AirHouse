@@ -39,15 +39,15 @@ function terminalLine(r: ActivityRow): string {
 }
 
 export function ActivityView({ rows }: { rows: ActivityRow[] }) {
-  const [view, setView] = useState<'table' | 'terminal'>('table');
+  const [view, setView] = useState<'table' | 'terminal'>('terminal');
   const [copied, setCopied] = useState(false);
 
   useEffect(() => {
-    const v = localStorage.getItem('activity_view');
+    const v = localStorage.getItem('activity_log_view');
     if (v === 'terminal' || v === 'table') setView(v);
   }, []);
   useEffect(() => {
-    localStorage.setItem('activity_view', view);
+    localStorage.setItem('activity_log_view', view);
   }, [view]);
 
   const allText = rows.map(terminalLine).join('\n');
