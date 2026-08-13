@@ -72,16 +72,6 @@ export function ActivityView({ rows }: { rows: ActivityRow[] }) {
         </div>
         <div className="flex overflow-hidden rounded-md border border-slate-700 text-sm">
           <button
-            onClick={() => setView('table')}
-            className={
-              view === 'table'
-                ? 'bg-slate-700 px-3 py-1.5 font-medium text-white'
-                : 'px-3 py-1.5 text-slate-400 hover:bg-slate-800'
-            }
-          >
-            Table
-          </button>
-          <button
             onClick={() => setView('terminal')}
             className={
               view === 'terminal'
@@ -90,6 +80,16 @@ export function ActivityView({ rows }: { rows: ActivityRow[] }) {
             }
           >
             Terminal
+          </button>
+          <button
+            onClick={() => setView('table')}
+            className={
+              view === 'table'
+                ? 'bg-slate-700 px-3 py-1.5 font-medium text-white'
+                : 'px-3 py-1.5 text-slate-400 hover:bg-slate-800'
+            }
+          >
+            Table
           </button>
         </div>
       </div>
