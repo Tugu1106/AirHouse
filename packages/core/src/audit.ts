@@ -5,10 +5,17 @@ import { sql } from 'kysely';
 import { getDb } from './db';
 import type { AuditAction, AuditLog, UUID } from './types';
 
+export type AuditEntityType = 'item' | 'employee' | 'branch';
+
 export interface AuditEntryInput {
-  item_id: UUID;
   action: AuditAction;
   actor: UUID;
+  /** What kind of thing changed. Defaults to 'item' (with entity_id = item_id). */
+  entity_type?: AuditEntityType;
+  /** Id of the affected entity. Defaults to item_id for item entities. */
+  entity_id?: UUID;
+  /** Set for item entities so the per-item history view keeps working. */
+  item_id?: UUID | null;
   from_branch_id?: UUID | null;
   to_branch_id?: UUID | null;
   from_employee_id?: UUID | null;
@@ -21,7 +28,9 @@ export async function writeAudit(entry: AuditEntryInput): Promise<void> {
   await db
     .insertInto('audit_log')
     .values({
-      item_id: entry.item_id,
+      entity_type: entry.entity_type ?? 'item',
+      entity_id: entry.entity_id ?? entry.item_id ?? null,
+      item_id: entry.item_id ?? null,
       action: entry.action,
       actor: entry.actor,
       from_branch_id: entry.from_branch_id ?? null,
@@ -45,27 +54,37 @@ export async function listAuditForItem(itemId: UUID): Promise<AuditLog[]> {
 }
 
 export interface ActivityEntry extends AuditLog {
+  entity_type: AuditEntityType;
+  entity_id: string | null;
   /** Email of the admin who performed the action (resolved from actor). */
   actor_email: string | null;
   item_type: string | null;
   item_name: string | null;
+  employee_name: string | null;
+  branch_name: string | null;
 }
 
 /**
- * Global activity feed — every logged mutation (create/update/transfer/delete),
- * newest first, with the acting admin's email and the target item resolved.
- * Powers the read-only admin Activity Log page. Only admins can mutate, so this
- * is inherently a log of admin actions, attributed per actor.
+ * Global activity feed — every logged mutation across items, employees and
+ * branches, newest first, with the acting admin's email and the target's name
+ * resolved. Powers the read-only admin Activity Log. Only admins can mutate, so
+ * this is inherently a log of admin actions, attributed per actor.
  */
 export async function listActivity(limit = 300): Promise<ActivityEntry[]> {
   const db = getDb();
   const rows = await db
     .selectFrom('audit_log as a')
     .leftJoin('users as u', 'u.id', 'a.actor')
-    .leftJoin('items as i', 'i.id', 'a.item_id')
+    .leftJoin('items as i', (j) => j.onRef('i.id', '=', 'a.entity_id').on('a.entity_type', '=', 'item'))
+    .leftJoin('employees as e', (j) =>
+      j.onRef('e.id', '=', 'a.entity_id').on('a.entity_type', '=', 'employee'),
+    )
+    .leftJoin('branches as b', (j) => j.onRef('b.id', '=', 'a.entity_id').on('a.entity_type', '=', 'branch'))
     .select([
       'a.id',
       'a.item_id',
+      'a.entity_type',
+      'a.entity_id',
       'a.action',
       'a.actor',
       'a.from_branch_id',
@@ -79,6 +98,8 @@ export async function listActivity(limit = 300): Promise<ActivityEntry[]> {
       sql<string | null>`coalesce(i.properties->>'system_name', i.properties->>'model', i.properties->>'serial')`.as(
         'item_name',
       ),
+      'e.name as employee_name',
+      'b.name as branch_name',
     ])
     .orderBy('a.created_at', 'desc')
     .limit(limit)

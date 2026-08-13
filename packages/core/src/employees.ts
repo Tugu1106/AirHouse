@@ -2,6 +2,7 @@
 
 import { getDb } from './db';
 import { transferItem } from './transfers';
+import { writeAudit } from './audit';
 import type { ActorContext, Employee, EmployeeStatus, UUID } from './types';
 
 // Map a DB row to the public Employee. user_id is the linked login's users.id
@@ -88,7 +89,10 @@ export interface CreateEmployeeInput {
   email?: string | null;
 }
 
-export async function createEmployee(input: CreateEmployeeInput): Promise<Employee> {
+export async function createEmployee(
+  input: CreateEmployeeInput,
+  ctx: ActorContext,
+): Promise<Employee> {
   const db = getDb();
   const row = await db
     .insertInto('employees')
@@ -102,7 +106,15 @@ export async function createEmployee(input: CreateEmployeeInput): Promise<Employ
     })
     .returningAll()
     .executeTakeFirstOrThrow();
-  return toEmployee(row);
+  const emp = toEmployee(row);
+  await writeAudit({
+    entity_type: 'employee',
+    entity_id: emp.id,
+    action: 'create',
+    actor: ctx.actorId,
+    diff: { name: emp.name },
+  });
+  return emp;
 }
 
 // --- login status ----------------------------------------------------------
@@ -154,6 +166,7 @@ export interface UpdateEmployeeInput {
  */
 export async function deleteEmployee(id: UUID, ctx: ActorContext): Promise<void> {
   const db = getDb();
+  const existing = await getEmployee(id); // capture the name for the activity log
 
   const items = await db
     .selectFrom('items')
@@ -172,9 +185,21 @@ export async function deleteEmployee(id: UUID, ctx: ActorContext): Promise<void>
     .set({ deleted_at: new Date().toISOString(), email: null })
     .where('id', '=', id)
     .execute();
+
+  await writeAudit({
+    entity_type: 'employee',
+    entity_id: id,
+    action: 'soft_delete',
+    actor: ctx.actorId,
+    diff: { name: existing?.name ?? null },
+  });
 }
 
-export async function updateEmployee(id: UUID, patch: UpdateEmployeeInput): Promise<Employee> {
+export async function updateEmployee(
+  id: UUID,
+  patch: UpdateEmployeeInput,
+  ctx: ActorContext,
+): Promise<Employee> {
   const update: Record<string, unknown> = {};
   if (patch.name !== undefined) update.name = patch.name;
   if (patch.branchId !== undefined) update.branch_id = patch.branchId;
@@ -193,5 +218,13 @@ export async function updateEmployee(id: UUID, patch: UpdateEmployeeInput): Prom
   }
 
   await db.updateTable('employees').set(update).where('id', '=', id).execute();
-  return (await getEmployee(id))!;
+  const emp = (await getEmployee(id))!;
+  await writeAudit({
+    entity_type: 'employee',
+    entity_id: id,
+    action: 'update',
+    actor: ctx.actorId,
+    diff: { name: emp.name, changed: Object.keys(update) },
+  });
+  return emp;
 }

@@ -1,7 +1,8 @@
 // Branch read/create helpers.
 
 import { getDb } from './db';
-import type { Branch, UUID } from './types';
+import { writeAudit } from './audit';
+import type { ActorContext, Branch, UUID } from './types';
 
 export async function listBranches(): Promise<Branch[]> {
   const db = getDb();
@@ -32,13 +33,21 @@ export async function findBranchByName(name: string): Promise<Branch> {
   return rows[0]!;
 }
 
-export async function createBranch(name: string): Promise<Branch> {
+export async function createBranch(name: string, ctx: ActorContext): Promise<Branch> {
   const db = getDb();
-  return (await db
+  const branch = (await db
     .insertInto('branches')
     .values({ name })
     .returningAll()
     .executeTakeFirstOrThrow()) as Branch;
+  await writeAudit({
+    entity_type: 'branch',
+    entity_id: branch.id,
+    action: 'create',
+    actor: ctx.actorId,
+    diff: { name: branch.name },
+  });
+  return branch;
 }
 
 /** Make one branch the central/HQ branch, clearing the flag from all others. */
@@ -54,7 +63,11 @@ export interface UpdateBranchInput {
   distanceHq?: string | null;
 }
 
-export async function updateBranch(id: UUID, patch: UpdateBranchInput): Promise<Branch> {
+export async function updateBranch(
+  id: UUID,
+  patch: UpdateBranchInput,
+  ctx: ActorContext,
+): Promise<Branch> {
   const update: Record<string, unknown> = {};
   if (patch.name !== undefined) update.name = patch.name;
   if (patch.branchNo !== undefined) update.branch_no = patch.branchNo;
@@ -69,20 +82,29 @@ export async function updateBranch(id: UUID, patch: UpdateBranchInput): Promise<
       .executeTakeFirstOrThrow()) as Branch;
   }
 
-  return (await db
+  const branch = (await db
     .updateTable('branches')
     .set(update)
     .where('id', '=', id)
     .returningAll()
     .executeTakeFirstOrThrow()) as Branch;
+  await writeAudit({
+    entity_type: 'branch',
+    entity_id: id,
+    action: 'update',
+    actor: ctx.actorId,
+    diff: { name: branch.name, changed: Object.keys(update) },
+  });
+  return branch;
 }
 
 /**
  * Hard-delete a branch — allowed only when nothing references it (items point at
  * a branch via a NOT NULL FK, so a non-empty branch cannot be removed safely).
  */
-export async function deleteBranch(id: UUID): Promise<void> {
+export async function deleteBranch(id: UUID, ctx: ActorContext): Promise<void> {
   const db = getDb();
+  const existing = await getBranch(id); // capture name for the activity log
 
   const items = await db
     .selectFrom('items')
@@ -103,6 +125,14 @@ export async function deleteBranch(id: UUID): Promise<void> {
   }
 
   await db.deleteFrom('branches').where('id', '=', id).execute();
+
+  await writeAudit({
+    entity_type: 'branch',
+    entity_id: id,
+    action: 'soft_delete',
+    actor: ctx.actorId,
+    diff: { name: existing?.name ?? null },
+  });
 }
 
 /** Save a branch's position on the custom map view (fractions 0..1). */

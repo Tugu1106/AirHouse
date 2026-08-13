@@ -256,20 +256,23 @@ export const TOOLS: ToolDef[] = [
       },
       required: ['name'],
     },
-    handler: async (args) => {
+    handler: async (args, ctx) => {
       const branchId = str(args.branch) ? (await findBranchByName(str(args.branch))).id : null;
       const email = str(args.email) || null;
-      const emp = await createEmployee({
-        name: str(args.name),
-        branchId,
-        phone: str(args.phone) || null,
-        position: str(args.position) || DEFAULT_POSITION,
-        status: (str(args.status) as EmployeeStatus) || undefined,
-        email,
-      });
+      const emp = await createEmployee(
+        {
+          name: str(args.name),
+          branchId,
+          phone: str(args.phone) || null,
+          position: str(args.position) || DEFAULT_POSITION,
+          status: (str(args.status) as EmployeeStatus) || undefined,
+          email,
+        },
+        ctx,
+      );
       let loginNote = '';
       if (email) {
-        const temp = await provisionEmployeeLogin(emp.id, email);
+        const temp = await provisionEmployeeLogin(emp.id, email, ctx);
         loginNote = ` A read-only login was created — temporary password: ${temp}. Share the site URL + this password; they set their own on first sign-in.`;
       }
       return `Added employee ${emp.name} (id: ${emp.id})${str(args.branch) ? ` at ${str(args.branch)}` : ''}.${loginNote}`;
@@ -295,7 +298,7 @@ export const TOOLS: ToolDef[] = [
       },
       required: ['name'],
     },
-    handler: async (args) => {
+    handler: async (args, ctx) => {
       const emp = await findEmployeeByName(str(args.name));
       const patch: {
         name?: string;
@@ -309,7 +312,7 @@ export const TOOLS: ToolDef[] = [
       if (str(args.phone)) patch.phone = str(args.phone);
       if (str(args.position)) patch.position = str(args.position);
       if (str(args.branch)) patch.branchId = (await findBranchByName(str(args.branch))).id;
-      await updateEmployee(emp.id, patch);
+      await updateEmployee(emp.id, patch, ctx);
 
       let loginNote = '';
       const email = str(args.email);
@@ -317,7 +320,7 @@ export const TOOLS: ToolDef[] = [
         if (emp.user_id) {
           loginNote = ` (${emp.name} already has a login — use reset_employee_login for a new temp password.)`;
         } else {
-          const temp = await provisionEmployeeLogin(emp.id, email);
+          const temp = await provisionEmployeeLogin(emp.id, email, ctx);
           loginNote = ` A read-only login was created — temporary password: ${temp}. Share the site URL + this password; they set their own on first sign-in.`;
         }
       }
@@ -333,9 +336,9 @@ export const TOOLS: ToolDef[] = [
       properties: { name: { type: 'string', description: 'Employee name.' } },
       required: ['name'],
     },
-    handler: async (args) => {
+    handler: async (args, ctx) => {
       const emp = await findEmployeeByName(str(args.name));
-      const temp = await resetEmployeeLogin(emp.id);
+      const temp = await resetEmployeeLogin(emp.id, ctx);
       return `Reset login for ${emp.name}. New temporary password: ${temp}. Share it; they set their own on next sign-in.`;
     },
   },
@@ -381,8 +384,8 @@ export const TOOLS: ToolDef[] = [
       properties: { name: { type: 'string', description: 'Branch name.' } },
       required: ['name'],
     },
-    handler: async (args) => {
-      const b = await createBranch(str(args.name));
+    handler: async (args, ctx) => {
+      const b = await createBranch(str(args.name), ctx);
       return `Added branch "${b.name}" (id: ${b.id}).`;
     },
   },
@@ -397,9 +400,9 @@ export const TOOLS: ToolDef[] = [
       },
       required: ['name', 'new_name'],
     },
-    handler: async (args) => {
+    handler: async (args, ctx) => {
       const b = await findBranchByName(str(args.name));
-      await updateBranch(b.id, { name: str(args.new_name) });
+      await updateBranch(b.id, { name: str(args.new_name) }, ctx);
       return `Renamed "${b.name}" to "${str(args.new_name)}".`;
     },
   },

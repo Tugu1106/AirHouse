@@ -28,18 +28,40 @@ export default async function ActivityPage() {
   const empName = (id: string | null) => (id ? (employees.find((e) => e.id === id)?.name ?? '—') : '—');
   const brName = (id: string | null) => (id ? (branches.find((b) => b.id === id)?.name ?? '—') : '—');
 
+  // The affected thing: item / employee / branch — with a link where it makes sense.
+  const target = (e: ActivityEntry): { label: string; href?: string } => {
+    const d = (e.diff ?? {}) as { name?: string };
+    if (e.entity_type === 'employee') {
+      return {
+        label: `Employee · ${e.employee_name ?? d.name ?? '—'}`,
+        href: e.entity_id ? `/employees/${e.entity_id}` : undefined,
+      };
+    }
+    if (e.entity_type === 'branch') {
+      return {
+        label: `Branch · ${e.branch_name ?? d.name ?? '—'}`,
+        href: e.branch_name && e.entity_id ? `/branch/${e.entity_id}` : undefined,
+      };
+    }
+    return {
+      label: `${e.item_type ?? 'item'}${e.item_name ? ` · ${e.item_name}` : ''}`,
+      href: e.item_id ? `/item/${e.item_id}` : undefined,
+    };
+  };
+
   const detail = (e: ActivityEntry): string => {
-    const parts: string[] = [];
-    if (e.action === 'transfer' || e.action === 'create') {
-      if (!e.from_employee_id && e.to_employee_id) parts.push(`Assigned to ${empName(e.to_employee_id)}`);
-      else if (e.from_employee_id && !e.to_employee_id) parts.push(`Unassigned from ${empName(e.from_employee_id)}`);
-      else if (e.from_employee_id && e.to_employee_id)
-        parts.push(`${empName(e.from_employee_id)} → ${empName(e.to_employee_id)}`);
+    if (e.entity_type === 'item' && (e.action === 'transfer' || e.action === 'create')) {
+      if (!e.from_employee_id && e.to_employee_id) return `Assigned to ${empName(e.to_employee_id)}`;
+      if (e.from_employee_id && !e.to_employee_id) return `Unassigned from ${empName(e.from_employee_id)}`;
+      if (e.from_employee_id && e.to_employee_id)
+        return `${empName(e.from_employee_id)} → ${empName(e.to_employee_id)}`;
+      if (e.action === 'transfer' && (e.from_branch_id || e.to_branch_id))
+        return `Branch: ${brName(e.from_branch_id)} → ${brName(e.to_branch_id)}`;
     }
-    if (e.action === 'transfer' && (e.from_branch_id || e.to_branch_id)) {
-      parts.push(`Branch: ${brName(e.from_branch_id)} → ${brName(e.to_branch_id)}`);
-    }
-    return parts.join(' · ');
+    const d = (e.diff ?? {}) as { login?: string; changed?: string[] };
+    if (d.login) return `Login ${d.login}`;
+    if (d.changed?.length) return `Changed: ${d.changed.join(', ')}`;
+    return '';
   };
 
   return (
@@ -58,7 +80,7 @@ export default async function ActivityPage() {
               <th className="px-4 py-3">When</th>
               <th className="px-4 py-3">Who</th>
               <th className="px-4 py-3">Action</th>
-              <th className="px-4 py-3">Item</th>
+              <th className="px-4 py-3">Target</th>
               <th className="px-4 py-3">Details</th>
             </tr>
           </thead>
@@ -70,32 +92,34 @@ export default async function ActivityPage() {
                 </td>
               </tr>
             )}
-            {activity.map((e) => (
-              <tr key={e.id}>
-                <td className="whitespace-nowrap px-4 py-3 text-slate-400">{fmt(e.created_at)}</td>
-                <td className="px-4 py-3 font-medium text-slate-200">{e.actor_email ?? '—'}</td>
-                <td className="px-4 py-3">
-                  <span
-                    className={`rounded-full px-2.5 py-0.5 text-xs font-medium ring-1 ${
-                      ACTION_STYLE[e.action] ?? 'bg-slate-500/15 text-slate-300 ring-slate-500/30'
-                    }`}
-                  >
-                    {ACTION_LABEL[e.action] ?? e.action}
-                  </span>
-                </td>
-                <td className="px-4 py-3 text-slate-400">
-                  {e.item_id ? (
-                    <Link href={`/item/${e.item_id}`} className="hover:text-brand">
-                      {e.item_type ?? 'item'}
-                      {e.item_name ? ` · ${e.item_name}` : ''}
-                    </Link>
-                  ) : (
-                    '—'
-                  )}
-                </td>
-                <td className="px-4 py-3 text-slate-400">{detail(e) || '—'}</td>
-              </tr>
-            ))}
+            {activity.map((e) => {
+              const t = target(e);
+              return (
+                <tr key={e.id}>
+                  <td className="whitespace-nowrap px-4 py-3 text-slate-400">{fmt(e.created_at)}</td>
+                  <td className="px-4 py-3 font-medium text-slate-200">{e.actor_email ?? '—'}</td>
+                  <td className="px-4 py-3">
+                    <span
+                      className={`rounded-full px-2.5 py-0.5 text-xs font-medium ring-1 ${
+                        ACTION_STYLE[e.action] ?? 'bg-slate-500/15 text-slate-300 ring-slate-500/30'
+                      }`}
+                    >
+                      {ACTION_LABEL[e.action] ?? e.action}
+                    </span>
+                  </td>
+                  <td className="px-4 py-3 text-slate-400">
+                    {t.href ? (
+                      <Link href={t.href} className="hover:text-brand">
+                        {t.label}
+                      </Link>
+                    ) : (
+                      t.label
+                    )}
+                  </td>
+                  <td className="px-4 py-3 text-slate-400">{detail(e) || '—'}</td>
+                </tr>
+              );
+            })}
           </tbody>
         </table>
       </div>

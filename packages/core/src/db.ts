@@ -75,7 +75,9 @@ interface ItemsTable {
 
 interface AuditLogTable {
   id: Generated<string>;
-  item_id: string;
+  entity_type: Generated<string>;
+  entity_id: Nullable<string>;
+  item_id: Nullable<string>;
   action: string;
   actor: string;
   from_branch_id: Nullable<string>;

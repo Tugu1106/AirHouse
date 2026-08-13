@@ -6,7 +6,8 @@
 
 import bcrypt from 'bcryptjs';
 import { getDb } from './db';
-import type { UUID } from './types';
+import { writeAudit } from './audit';
+import type { ActorContext, UUID } from './types';
 
 const SALT_ROUNDS = 10;
 const SESSION_TTL_MS = 30 * 24 * 60 * 60 * 1000; // 30 days
@@ -132,7 +133,11 @@ export async function setUserPassword(userId: UUID, newPassword: string): Promis
  * (forced change on first sign-in). Returns the temp password to share. Throws
  * if a login for that email already exists.
  */
-export async function provisionEmployeeLogin(employeeId: UUID, email: string): Promise<string> {
+export async function provisionEmployeeLogin(
+  employeeId: UUID,
+  email: string,
+  ctx: ActorContext,
+): Promise<string> {
   const db = getDb();
   const e = email.trim();
   const existing = await db.selectFrom('users').select('id').where('email', 'ilike', e).executeTakeFirst();
@@ -151,11 +156,18 @@ export async function provisionEmployeeLogin(employeeId: UUID, email: string): P
     })
     .execute();
   await db.updateTable('employees').set({ email: e }).where('id', '=', employeeId).execute();
+  await writeAudit({
+    entity_type: 'employee',
+    entity_id: employeeId,
+    action: 'update',
+    actor: ctx.actorId,
+    diff: { login: 'created', email: e },
+  });
   return temp;
 }
 
 /** Reset an existing worker login to a new temp password (forces re-change). */
-export async function resetEmployeeLogin(employeeId: UUID): Promise<string> {
+export async function resetEmployeeLogin(employeeId: UUID, ctx: ActorContext): Promise<string> {
   const db = getDb();
   const user = await db
     .selectFrom('users')
@@ -169,6 +181,13 @@ export async function resetEmployeeLogin(employeeId: UUID): Promise<string> {
     .set({ password_hash: await hashPassword(temp), must_reset: true })
     .where('id', '=', user.id)
     .execute();
+  await writeAudit({
+    entity_type: 'employee',
+    entity_id: employeeId,
+    action: 'update',
+    actor: ctx.actorId,
+    diff: { login: 'reset' },
+  });
   return temp;
 }
 

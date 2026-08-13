@@ -101,7 +101,9 @@ create trigger items_set_updated_at
 -- --- audit_log --------------------------------------------------------------
 create table if not exists audit_log (
   id               uuid primary key default gen_random_uuid(),
-  item_id          uuid not null references items(id),
+  entity_type      text not null default 'item',   -- 'item' | 'employee' | 'branch'
+  entity_id        uuid,                            -- id of the affected entity
+  item_id          uuid references items(id),       -- set for item entities (item history)
   action           text not null,
   actor            uuid not null,   -- users.id (no FK: history must survive deletes)
   from_branch_id   uuid references branches(id),

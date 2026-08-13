@@ -123,8 +123,8 @@ export async function signOutAction(): Promise<void> {
 
 export async function createEmployeeLoginAction(id: string, email: string): Promise<ActionResult> {
   try {
-    await requireActor();
-    const tempPassword = await provisionEmployeeLogin(id, email.trim());
+    const ctx = await requireActor();
+    const tempPassword = await provisionEmployeeLogin(id, email.trim(), ctx);
     return { ok: true, tempPassword };
   } catch (e) {
     return { ok: false, error: errMessage(e) };
@@ -133,8 +133,8 @@ export async function createEmployeeLoginAction(id: string, email: string): Prom
 
 export async function resetEmployeeLoginAction(id: string): Promise<ActionResult> {
   try {
-    await requireActor();
-    const tempPassword = await resetEmployeeLogin(id);
+    const ctx = await requireActor();
+    const tempPassword = await resetEmployeeLogin(id, ctx);
     return { ok: true, tempPassword };
   } catch (e) {
     return { ok: false, error: errMessage(e) };
@@ -262,10 +262,10 @@ export async function restoreItemAction(id: string): Promise<ActionResult> {
 
 export async function createBranchAction(_prev: ActionResult | null, formData: FormData): Promise<ActionResult> {
   try {
-    await requireActor();
+    const ctx = await requireActor();
     const name = String(formData.get('name') ?? '').trim();
     if (!name) return { ok: false, error: 'Branch name is required' };
-    await createBranch(name);
+    await createBranch(name, ctx);
   } catch (e) {
     return { ok: false, error: errMessage(e) };
   }
@@ -278,15 +278,16 @@ export async function renameBranchAction(
   formData: FormData,
 ): Promise<ActionResult> {
   try {
-    await requireActor();
+    const ctx = await requireActor();
     const id = String(formData.get('id') ?? '');
     const name = String(formData.get('name') ?? '').trim();
     if (!id) return { ok: false, error: 'Missing branch id' };
     if (!name) return { ok: false, error: 'Branch name is required' };
-    await updateBranch(id, {
-      name,
-      branchNo: String(formData.get('branch_no') ?? '').trim() || null,
-    });
+    await updateBranch(
+      id,
+      { name, branchNo: String(formData.get('branch_no') ?? '').trim() || null },
+      ctx,
+    );
   } catch (e) {
     return { ok: false, error: errMessage(e) };
   }
@@ -295,8 +296,8 @@ export async function renameBranchAction(
 
 export async function deleteBranchAction(id: string): Promise<ActionResult> {
   try {
-    await requireActor();
-    await deleteBranch(id);
+    const ctx = await requireActor();
+    await deleteBranch(id, ctx);
   } catch (e) {
     return { ok: false, error: errMessage(e) };
   }
@@ -329,22 +330,25 @@ export async function setBranchPositionAction(
 
 export async function createEmployeeAction(_prev: ActionResult | null, formData: FormData): Promise<ActionResult> {
   try {
-    await requireActor();
+    const ctx = await requireActor();
     const name = String(formData.get('name') ?? '').trim();
     const branchId = String(formData.get('branch_id') ?? '') || null;
     const email = String(formData.get('email') ?? '').trim() || null;
     if (!name) return { ok: false, error: 'Employee name is required' };
-    const emp = await createEmployee({
-      name,
-      branchId,
-      phone: String(formData.get('phone') ?? '').trim() || null,
-      position: String(formData.get('position') ?? '').trim() || null,
-      status: (String(formData.get('status') ?? '') as EmployeeStatus) || undefined,
-      email,
-    });
+    const emp = await createEmployee(
+      {
+        name,
+        branchId,
+        phone: String(formData.get('phone') ?? '').trim() || null,
+        position: String(formData.get('position') ?? '').trim() || null,
+        status: (String(formData.get('status') ?? '') as EmployeeStatus) || undefined,
+        email,
+      },
+      ctx,
+    );
     // If an email was given, provision their read-only login and surface the temp password.
     if (email) {
-      const tempPassword = await provisionEmployeeLogin(emp.id, email);
+      const tempPassword = await provisionEmployeeLogin(emp.id, email, ctx);
       return { ok: true, tempPassword };
     }
   } catch (e) {
@@ -368,19 +372,23 @@ export async function updateEmployeeAction(
   formData: FormData,
 ): Promise<ActionResult> {
   try {
-    await requireActor();
+    const ctx = await requireActor();
     const id = String(formData.get('id') ?? '');
     if (!id) return { ok: false, error: 'Missing employee id' };
     const branchRaw = formData.get('branch_id');
-    await updateEmployee(id, {
-      name: String(formData.get('name') ?? '').trim() || undefined,
-      phone: formData.has('phone') ? String(formData.get('phone') ?? '').trim() || null : undefined,
-      position: formData.has('position')
-        ? String(formData.get('position') ?? '').trim() || null
-        : undefined,
-      status: (String(formData.get('status') ?? '') as EmployeeStatus) || undefined,
-      branchId: branchRaw !== null ? String(branchRaw) || null : undefined,
-    });
+    await updateEmployee(
+      id,
+      {
+        name: String(formData.get('name') ?? '').trim() || undefined,
+        phone: formData.has('phone') ? String(formData.get('phone') ?? '').trim() || null : undefined,
+        position: formData.has('position')
+          ? String(formData.get('position') ?? '').trim() || null
+          : undefined,
+        status: (String(formData.get('status') ?? '') as EmployeeStatus) || undefined,
+        branchId: branchRaw !== null ? String(branchRaw) || null : undefined,
+      },
+      ctx,
+    );
   } catch (e) {
     return { ok: false, error: errMessage(e) };
   }
