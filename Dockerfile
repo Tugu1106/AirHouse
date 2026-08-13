@@ -1,23 +1,28 @@
 # ---- deps ----
 FROM node:22-alpine AS deps
-RUN corepack enable
+# Download+activate pnpm in its own layer (keyed only on the version), so it is
+# fetched from the registry at most once and reused — a source edit can't force
+# corepack back onto the network.
+RUN corepack enable && corepack prepare pnpm@11.16.0 --activate
 WORKDIR /app
 RUN pnpm config set fetch-timeout 300000 --location=global \
  && pnpm config set fetch-retries 5 --location=global \
  && pnpm config set network-concurrency 4 --location=global
-# All workspace manifests must be present for --frozen-lockfile to validate the
-# lockfile (the workspace globs apps/* and packages/*), even mcp-server which we
-# don't build here. The --filter keeps the install to web + its deps (skips
-# mcp-server's Cloudflare/workerd deps).
+# Only the workspace MANIFESTS go in before install — not the source — so this
+# layer (and the install) is cached until dependencies actually change. All
+# manifests must be present for --frozen-lockfile to validate the lockfile (the
+# workspace globs apps/* and packages/*), even mcp-server which we don't build
+# here. The --filter keeps the install to web + its deps (skips mcp-server's
+# Cloudflare/workerd deps).
 COPY pnpm-workspace.yaml pnpm-lock.yaml package.json ./
 COPY apps/web/package.json apps/web/package.json
 COPY apps/mcp-server/package.json apps/mcp-server/package.json
-COPY packages ./packages
+COPY packages/core/package.json packages/core/package.json
 RUN pnpm install --frozen-lockfile --filter @airlink/web...
 
 # ---- build ----
 FROM node:22-alpine AS builder
-RUN corepack enable
+RUN corepack enable && corepack prepare pnpm@11.16.0 --activate
 WORKDIR /app
 # Bring the whole installed tree from deps — pnpm puts a node_modules in each
 # workspace package (apps/web/node_modules holds the `next` binary), not just at
