@@ -5,7 +5,7 @@ import { sql } from 'kysely';
 import { getDb } from './db';
 import type { AuditAction, AuditLog, UUID } from './types';
 
-export type AuditEntityType = 'item' | 'employee' | 'branch' | 'user';
+export type AuditEntityType = 'item' | 'employee' | 'branch';
 
 export interface AuditEntryInput {
   action: AuditAction;

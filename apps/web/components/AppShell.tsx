@@ -3,7 +3,6 @@
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { useData } from './DataProvider';
-import { DevReset } from './DevReset';
 import { signOutAction } from '@/lib/actions';
 
 const NAV = [
@@ -12,11 +11,10 @@ const NAV = [
   { href: '/employees', label: 'Employees' },
   { href: '/branches', label: 'Branches' },
   { href: '/activity', label: 'Log' },
-  { href: '/admins', label: 'Admins' },
 ];
 
 export function AppShell({ children }: { children: React.ReactNode }) {
-  const { userEmail, refresh, refreshing } = useData();
+  const { userEmail } = useData();
   const pathname = usePathname();
 
   const isActive = (href: string) =>
@@ -51,15 +49,6 @@ export function AppShell({ children }: { children: React.ReactNode }) {
           </nav>
 
           <div className="ml-auto flex items-center gap-3 text-sm text-slate-400">
-            <DevReset />
-            <button
-              onClick={() => refresh()}
-              disabled={refreshing}
-              title="Reload data from the database"
-              className="btn-ghost disabled:opacity-60"
-            >
-              {refreshing ? 'Refreshing…' : '↻ Refresh'}
-            </button>
             <span className="hidden text-slate-500 sm:inline">{userEmail}</span>
             <form action={signOutAction}>
               <button className="btn-ghost">Sign out</button>

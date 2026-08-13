@@ -22,10 +22,6 @@ import {
   deleteEmployee,
   provisionEmployeeLogin,
   resetEmployeeLogin,
-  createAdmin,
-  removeAdmin,
-  deleteAllItems,
-  deleteAllEmployees,
   verifyCredentials,
   createSession,
   setUserPassword,
@@ -34,7 +30,7 @@ import {
   type ItemStatus,
   type EmployeeStatus,
 } from '@airlink/core';
-import { getRole, requireActor } from './auth';
+import { requireActor } from './auth';
 import {
   getCurrentUser,
   getSessionId,
@@ -141,69 +137,6 @@ export async function resetEmployeeLoginAction(id: string): Promise<ActionResult
   } catch (e) {
     return { ok: false, error: errMessage(e) };
   }
-}
-
-// --- admin management (admin only) ----------------------------------------
-
-export async function createAdminAction(
-  _prev: ActionResult | null,
-  formData: FormData,
-): Promise<ActionResult> {
-  try {
-    await requireAdmin();
-    const ctx = await requireActor();
-    const email = String(formData.get('email') ?? '').trim();
-    const password = String(formData.get('password') ?? '');
-    if (!email) return { ok: false, error: 'Email is required' };
-    if (password.length < 8) return { ok: false, error: 'Password must be at least 8 characters.' };
-    await createAdmin(email, password, ctx);
-  } catch (e) {
-    return { ok: false, error: errMessage(e) };
-  }
-  revalidatePath('/admins');
-  return { ok: true };
-}
-
-export async function removeAdminAction(id: string): Promise<ActionResult> {
-  try {
-    await requireAdmin();
-    const ctx = await requireActor();
-    await removeAdmin(id, ctx);
-  } catch (e) {
-    return { ok: false, error: errMessage(e) };
-  }
-  revalidatePath('/admins');
-  return { ok: true };
-}
-
-// --- testing: bulk wipes (admin only) -------------------------------------
-
-async function requireAdmin(): Promise<void> {
-  const role = await getRole();
-  if (role.role !== 'admin') throw new Error('Only the admin can do this.');
-}
-
-export async function deleteAllItemsAction(): Promise<ActionResult> {
-  try {
-    await requireAdmin();
-    await deleteAllItems();
-  } catch (e) {
-    return { ok: false, error: errMessage(e) };
-  }
-  revalidatePath('/dashboard');
-  revalidatePath('/branch', 'layout');
-  return { ok: true };
-}
-
-export async function deleteAllEmployeesAction(): Promise<ActionResult> {
-  try {
-    await requireAdmin();
-    const ctx = await requireActor();
-    await deleteAllEmployees(ctx);
-  } catch (e) {
-    return { ok: false, error: errMessage(e) };
-  }
-  return { ok: true };
 }
 
 // --- items ----------------------------------------------------------------

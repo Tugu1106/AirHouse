@@ -1,9 +1,12 @@
-# Airlink Assets — MCP Server (Phase 2)
+# Airlink Assets — MCP Server
 
-A Cloudflare Worker that exposes the asset tracker to Claude as MCP tools. It's a
-thin wrapper over `@airlink/core` — the *same* logic the web app uses — so an
-action taken through Claude produces identical database state and audit entries
-as the same action in the web form.
+A **local stdio MCP server** that exposes the asset tracker to Claude Desktop as
+tools. It's a thin wrapper over `@airlink/core` — the *same* logic the web app
+uses — so an action taken through Claude produces identical database state and
+audit entries as the same action in the web form.
+
+It talks to Claude over stdin/stdout (newline-delimited JSON-RPC) and connects
+straight to Postgres. No Cloudflare, no OAuth, no public endpoint.
 
 **Tools.** Claude gets everyday, reversible actions. Permanent deletions
 (branch/employee) are intentionally NOT exposed — those stay human-only in the
@@ -13,97 +16,71 @@ web app, behind a confirmation.
 - Employees: `add_employee`, `update_employee`
 - Branches: `add_branch`, `rename_branch`, `set_central_branch`
 
-**Auth:** OAuth 2.1 (via `@cloudflare/workers-oauth-provider`), so it works as a
-claude.ai **custom connector** in the browser. Connecting is gated by a single
-admin password you set — when Claude connects, you get a consent screen and type
-that password once.
-
 ---
 
 ## How it fits together
 
 ```
-You (chatting with Claude)
+You (chatting in Claude Desktop)
         │  "Add PC-014 to John at Khan Tower"
         ▼
-Claude ──OAuth──► /authorize (you enter admin password, once)
-        │                    └─► token
-        ▼
-Claude ──MCP (token)──► this Worker (Cloudflare, 24/7)
-                              │ calls @airlink/core
-                              ▼
-                        Supabase  ──►  web dashboard reflects it instantly
+Claude Desktop ──spawns──► node dist/airhouse-mcp.cjs   (this server, stdio)
+                                │ calls @airlink/core
+                                ▼
+                           Postgres  ──►  web dashboard reflects it instantly
 ```
+
+Actions are attributed to the admin user — resolved from the database, or
+pinned with `ADMIN_ACTOR_ID` if you set it.
 
 ---
 
-## Deploy (one time)
+## Setup
 
-### 1. Values you'll need
-- Your Supabase **Project URL** and **service_role key** (Project Settings → API).
-- **`ADMIN_ACTOR_ID`** — your Supabase auth user's UUID (Authentication → Users →
-  click your admin user → **User UID**). MCP actions are attributed to this id.
-- **`OAUTH_PASSWORD`** — a password you invent. You'll type it on the consent
-  screen when connecting Claude. Pick something strong.
-
-### 2. Log in to Cloudflare
+### 1. Build the server
 ```bash
-cd apps/mcp-server
-pnpm exec wrangler login
+pnpm --filter @airlink/mcp-server build
 ```
+This bundles everything into `apps/mcp-server/dist/airhouse-mcp.cjs`.
 
-### 3. Create the KV namespace (stores OAuth tokens) and wire its id
-```bash
-pnpm exec wrangler kv namespace create OAUTH_KV
+### 2. Point Claude Desktop at it
+Edit Claude Desktop's config file:
+- **Windows:** `%APPDATA%\Claude\claude_desktop_config.json`
+  (Microsoft Store build: `…\AppData\Local\Packages\Claude_*\LocalCache\Roaming\Claude\claude_desktop_config.json`)
+- **macOS:** `~/Library/Application Support/Claude/claude_desktop_config.json`
+
+Add the server (use the absolute path to the built `.cjs` and your DB URL):
+```json
+{
+  "mcpServers": {
+    "airhouse": {
+      "command": "node",
+      "args": ["D:\\tugu programs\\code\\AirHouse\\apps\\mcp-server\\dist\\airhouse-mcp.cjs"],
+      "env": {
+        "DATABASE_URL": "postgresql://airhouse:PASSWORD@10.58.152.12:5432/airhouse"
+      }
+    }
+  }
+}
 ```
-It prints an `id`. Open `wrangler.toml` and replace `REPLACE_WITH_KV_ID` with it.
+Point `DATABASE_URL` at the production DB (Postgres is exposed on the internal
+network) or a local dev DB (`pnpm db:up`).
 
-### 4. Set the secrets (do this in PowerShell so the prompt shows)
-```powershell
-pnpm exec wrangler secret put SUPABASE_URL
-pnpm exec wrangler secret put SUPABASE_SERVICE_ROLE_KEY
-pnpm exec wrangler secret put ADMIN_ACTOR_ID
-pnpm exec wrangler secret put OAUTH_PASSWORD
-```
-
-### 5. Deploy
-```bash
-# use `wrangler deploy`, NOT `pnpm deploy` (that's a different pnpm built-in)
-pnpm exec wrangler deploy
-```
-Your MCP endpoint is the printed URL + **`/mcp`**, e.g.
-`https://airlink-assets-mcp.<subdomain>.workers.dev/mcp`
-
-### 6. Verify it's live
-```bash
-curl https://airlink-assets-mcp.<subdomain>.workers.dev/health
-# {"ok":true,...}
-
-# The OAuth discovery doc Claude reads:
-curl https://airlink-assets-mcp.<subdomain>.workers.dev/.well-known/oauth-authorization-server
-```
+### 3. Restart Claude Desktop
+The asset tools appear. Try *"list my branches."*
 
 ---
 
-## Connect it to Claude (browser)
+## Config
 
-1. claude.ai → **Settings → Connectors → Add custom connector**.
-2. Paste your `…/mcp` URL.
-3. Claude registers itself and opens your **consent screen** — type your
-   `OAUTH_PASSWORD` and click **Authorize**.
-4. The asset tools appear. Try *"list my branches."*
+| Variable          | Required | Purpose                                                        |
+| ----------------- | -------- | -------------------------------------------------------------- |
+| `DATABASE_URL`    | yes      | Postgres connection string.                                    |
+| `ADMIN_ACTOR_ID`  | no       | Pin actions to a specific admin id (else the oldest admin).    |
 
-(No client ID or token to paste — the OAuth handshake is automatic once the
-password is accepted.)
+There must be at least one admin user in the DB (see `pnpm seed:admin`).
 
 ---
-
-## Local development
-```bash
-cd apps/mcp-server
-cp .dev.vars.example .dev.vars   # fill with real values
-pnpm dev                         # wrangler dev on http://127.0.0.1:8788
-```
 
 ## Try it (once connected)
 - *"List the branches."* → `list_branches`
@@ -112,6 +89,3 @@ pnpm dev                         # wrangler dev on http://127.0.0.1:8788
 - *"Retire PC-014."* → `soft_delete_item`
 
 Then open the web dashboard — the change is already there (same database).
-
-**Exit criteria (Phase 2):** an action via Claude produces the same `items` row
-and `audit_log` entry as the same action via the web form. ✅
