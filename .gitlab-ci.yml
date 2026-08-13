@@ -1,0 +1,26 @@
+# CI/CD — auto-deploy AirHouse when main is pushed.
+#
+# Runs on the self-hosted runner on 10.58.152.12 (shell executor, so `docker
+# compose` runs right on the server). The POSTGRES_* / ADMIN_* values come from
+# GitLab CI/CD Variables and are read by docker-compose.prod.yml.
+#
+# The Docker build runs `next build`, which type-checks the web app — so a type
+# error fails the build and blocks the deploy (the old container keeps running).
+
+stages:
+  - deploy
+
+deploy:
+  stage: deploy
+  rules:
+    - if: '$CI_COMMIT_BRANCH == "main"'
+  script:
+    - echo "==> Building + deploying (Postgres + web)..."
+    - docker compose -f docker-compose.prod.yml up -d --build
+    - echo "==> Seeding admin (create-only, idempotent)..."
+    - docker compose -f docker-compose.prod.yml run --rm seed
+    - echo "==> Status:"
+    - docker compose -f docker-compose.prod.yml ps
+  environment:
+    name: production
+    url: http://10.58.152.12
