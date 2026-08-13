@@ -13,9 +13,12 @@ const NAV = [
   { href: '/activity', label: 'Log' },
 ];
 
-export function AppShell({ children }: { children: React.ReactNode }) {
+export function AppShell({ isMaster, children }: { isMaster: boolean; children: React.ReactNode }) {
   const { userEmail } = useData();
   const pathname = usePathname();
+
+  // The Admins link is master-admin only (the page + actions enforce it too).
+  const nav = isMaster ? [...NAV, { href: '/admins', label: 'Admins' }] : NAV;
 
   const isActive = (href: string) =>
     pathname === href ||
@@ -33,7 +36,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
           </Link>
 
           <nav className="flex items-center gap-1 text-sm">
-            {NAV.map((n) => (
+            {nav.map((n) => (
               <Link
                 key={n.href}
                 href={n.href}

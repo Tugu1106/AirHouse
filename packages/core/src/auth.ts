@@ -119,6 +119,85 @@ export async function getAdminActorId(): Promise<string | null> {
   return row?.id ?? null;
 }
 
+// --- admin management (master-admin only, gated in the web layer) -----------
+// Level-2 admins are ordinary role='admin' users: they can do everything except
+// manage other admins. Only the master admin (by email) reaches these.
+
+export interface AdminSummary {
+  id: UUID;
+  email: string;
+  created_at: string;
+  last_sign_in_at: string | null;
+}
+
+/** All admin users, oldest first. */
+export async function listAdmins(): Promise<AdminSummary[]> {
+  return getDb()
+    .selectFrom('users')
+    .select(['id', 'email', 'created_at', 'last_sign_in_at'])
+    .where('role', '=', 'admin')
+    .orderBy('created_at')
+    .execute();
+}
+
+/**
+ * Create a new (level-2) admin login with a password you choose. Throws if the
+ * email is already taken. The new admin can sign in immediately (no reset).
+ */
+export async function createAdmin(
+  email: string,
+  password: string,
+  ctx: ActorContext,
+): Promise<AdminSummary> {
+  const db = getDb();
+  const e = email.trim();
+  if (!e) throw new Error('Email is required.');
+  if (password.length < 8) throw new Error('Password must be at least 8 characters.');
+  const existing = await db.selectFrom('users').select('id').where('email', 'ilike', e).executeTakeFirst();
+  if (existing) throw new Error('A user with this email already exists.');
+  const row = await db
+    .insertInto('users')
+    .values({
+      email: e,
+      password_hash: await hashPassword(password),
+      role: 'admin',
+      must_reset: false,
+      employee_id: null,
+    })
+    .returning(['id', 'email', 'created_at', 'last_sign_in_at'])
+    .executeTakeFirstOrThrow();
+  await writeAudit({
+    entity_type: 'user',
+    entity_id: row.id,
+    action: 'create',
+    actor: ctx.actorId,
+    diff: { admin: 'created', email: e },
+  });
+  return row;
+}
+
+/**
+ * Remove an admin login. Guards against removing yourself or the last admin.
+ * Their sessions cascade away; their past actions stay in the log (audit_log
+ * has no FK to users), attributed by the email recorded here.
+ */
+export async function removeAdmin(id: UUID, ctx: ActorContext): Promise<void> {
+  const db = getDb();
+  if (id === ctx.actorId) throw new Error('You cannot remove your own admin account.');
+  const admins = await db.selectFrom('users').select(['id', 'email']).where('role', '=', 'admin').execute();
+  if (admins.length <= 1) throw new Error('At least one admin must remain.');
+  const target = admins.find((a) => a.id === id);
+  if (!target) throw new Error('That admin no longer exists.');
+  await db.deleteFrom('users').where('id', '=', id).where('role', '=', 'admin').execute();
+  await writeAudit({
+    entity_type: 'user',
+    entity_id: id,
+    action: 'soft_delete',
+    actor: ctx.actorId,
+    diff: { admin: 'removed', email: target.email },
+  });
+}
+
 /** Set a user's own password and clear the forced-reset flag. */
 export async function setUserPassword(userId: UUID, newPassword: string): Promise<void> {
   await getDb()

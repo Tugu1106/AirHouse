@@ -22,6 +22,8 @@ import {
   deleteEmployee,
   provisionEmployeeLogin,
   resetEmployeeLogin,
+  createAdmin,
+  removeAdmin,
   verifyCredentials,
   createSession,
   setUserPassword,
@@ -30,7 +32,7 @@ import {
   type ItemStatus,
   type EmployeeStatus,
 } from '@airlink/core';
-import { requireActor } from './auth';
+import { requireActor, requireMasterAdmin } from './auth';
 import {
   getCurrentUser,
   getSessionId,
@@ -137,6 +139,37 @@ export async function resetEmployeeLoginAction(id: string): Promise<ActionResult
   } catch (e) {
     return { ok: false, error: errMessage(e) };
   }
+}
+
+// --- admin management (master admin only) ---------------------------------
+
+export async function createAdminAction(
+  _prev: ActionResult | null,
+  formData: FormData,
+): Promise<ActionResult> {
+  try {
+    const ctx = await requireMasterAdmin();
+    const email = String(formData.get('email') ?? '').trim();
+    const password = String(formData.get('password') ?? '');
+    if (!email) return { ok: false, error: 'Email is required' };
+    if (password.length < 8) return { ok: false, error: 'Password must be at least 8 characters.' };
+    await createAdmin(email, password, ctx);
+  } catch (e) {
+    return { ok: false, error: errMessage(e) };
+  }
+  revalidatePath('/admins');
+  return { ok: true };
+}
+
+export async function removeAdminAction(id: string): Promise<ActionResult> {
+  try {
+    const ctx = await requireMasterAdmin();
+    await removeAdmin(id, ctx);
+  } catch (e) {
+    return { ok: false, error: errMessage(e) };
+  }
+  revalidatePath('/admins');
+  return { ok: true };
 }
 
 // --- items ----------------------------------------------------------------

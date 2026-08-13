@@ -27,6 +27,10 @@ export default async function ActivityPage() {
         href: e.branch_name && e.entity_id ? `/branch/${e.entity_id}` : undefined,
       };
     }
+    if (e.entity_type === 'user') {
+      const du = (e.diff ?? {}) as { email?: string };
+      return { label: `Admin · ${du.email ?? '—'}` };
+    }
     return {
       label: `${e.item_type ?? 'item'}${e.item_name ? ` · ${e.item_name}` : ''}`,
       href: e.item_id ? `/item/${e.item_id}` : undefined,

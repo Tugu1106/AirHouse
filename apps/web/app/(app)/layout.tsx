@@ -1,5 +1,5 @@
 import { redirect } from 'next/navigation';
-import { getRole } from '@/lib/auth';
+import { getRole, isMasterEmail } from '@/lib/auth';
 import { AppProviders } from '@/components/AppProviders';
 
 // The admin area. Authorization is enforced here (server-side, with DB access):
@@ -9,5 +9,6 @@ export default async function AppLayout({ children }: { children: React.ReactNod
   if (r.role === 'none') redirect('/login');
   if (r.user.must_reset) redirect('/set-password');
   if (r.role !== 'admin') redirect('/me');
-  return <AppProviders>{children}</AppProviders>;
+  const isMaster = isMasterEmail(r.user.email);
+  return <AppProviders isMaster={isMaster}>{children}</AppProviders>;
 }

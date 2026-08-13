@@ -31,3 +31,32 @@ export async function getCurrentUserEmail(): Promise<string | null> {
   const user = await getCurrentUser();
   return user?.email ?? null;
 }
+
+// --- master admin ----------------------------------------------------------
+// One designated account (by email) may manage other admins. Everyone else with
+// role='admin' is a level-2 admin: full access except the Admins page/actions.
+// Defaults to the seeded admin (ADMIN_EMAIL), overridable via MASTER_ADMIN_EMAIL.
+const MASTER_ADMIN_EMAIL = (
+  process.env.MASTER_ADMIN_EMAIL ??
+  process.env.ADMIN_EMAIL ??
+  'admin@airlink.mn'
+).toLowerCase();
+
+export function isMasterEmail(email: string | null | undefined): boolean {
+  return !!email && email.toLowerCase() === MASTER_ADMIN_EMAIL;
+}
+
+/** True only for the master admin's session. */
+export async function isMasterAdmin(): Promise<boolean> {
+  const user = await getCurrentUser();
+  return !!user && user.role === 'admin' && isMasterEmail(user.email);
+}
+
+/** Actor context for the master admin, or throw. Guards admin-management. */
+export async function requireMasterAdmin(): Promise<ActorContext> {
+  const user = await getCurrentUser();
+  if (!user || user.role !== 'admin' || !isMasterEmail(user.email)) {
+    throw new Error('Only the master admin can manage admins.');
+  }
+  return { actorId: user.id };
+}
