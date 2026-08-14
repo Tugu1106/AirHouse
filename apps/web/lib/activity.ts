@@ -98,3 +98,8 @@ export async function getActivityPage(
   ]);
   return resolveRows(activity, employees, branches);
 }
+
+/** Every activity row, newest first — used for the full-log .txt export. */
+export async function getAllActivity(): Promise<ActivityRow[]> {
+  return getActivityPage(0, 100_000);
+}

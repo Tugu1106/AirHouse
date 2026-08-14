@@ -33,7 +33,7 @@ import {
   type EmployeeStatus,
 } from '@airlink/core';
 import { getRole, requireActor, requireMasterAdmin } from './auth';
-import { getActivityPage, ACTIVITY_PAGE_SIZE, type ActivityRow } from './activity';
+import { getActivityPage, getAllActivity, ACTIVITY_PAGE_SIZE, type ActivityRow } from './activity';
 import {
   getCurrentUser,
   getSessionId,
@@ -150,6 +150,13 @@ export async function loadActivityAction(offset: number): Promise<ActivityRow[]>
   if (role.role !== 'admin') return [];
   const safeOffset = Number.isFinite(offset) && offset > 0 ? Math.floor(offset) : 0;
   return getActivityPage(safeOffset, ACTIVITY_PAGE_SIZE);
+}
+
+/** Fetch the entire activity log for the .txt export. */
+export async function exportActivityAction(): Promise<ActivityRow[]> {
+  const role = await getRole();
+  if (role.role !== 'admin') return [];
+  return getAllActivity();
 }
 
 // --- admin management (master admin only) ---------------------------------

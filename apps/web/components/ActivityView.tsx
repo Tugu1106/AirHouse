@@ -1,8 +1,39 @@
 'use client';
 
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
-import { loadActivityAction } from '@/lib/actions';
+import { loadActivityAction, exportActivityAction } from '@/lib/actions';
 import type { ActivityRow } from '@/lib/activity';
+
+/**
+ * Copy text to the clipboard. The async Clipboard API only works in a secure
+ * context (HTTPS or localhost); our site runs over plain HTTP, so fall back to
+ * the legacy execCommand + hidden textarea, which works everywhere.
+ */
+async function copyText(text: string): Promise<boolean> {
+  try {
+    if (navigator.clipboard && window.isSecureContext) {
+      await navigator.clipboard.writeText(text);
+      return true;
+    }
+  } catch {
+    /* fall through to the legacy path */
+  }
+  try {
+    const ta = document.createElement('textarea');
+    ta.value = text;
+    ta.style.position = 'fixed';
+    ta.style.top = '-1000px';
+    ta.style.opacity = '0';
+    document.body.appendChild(ta);
+    ta.focus();
+    ta.select();
+    const ok = document.execCommand('copy');
+    document.body.removeChild(ta);
+    return ok;
+  } catch {
+    return false;
+  }
+}
 
 const ACTION_LABEL: Record<string, string> = {
   create: 'Created',
@@ -31,7 +62,8 @@ export function ActivityView({
   pageSize: number;
   initialHasMore: boolean;
 }) {
-  const [copied, setCopied] = useState(false);
+  const [copyState, setCopyState] = useState<'idle' | 'ok' | 'fail'>('idle');
+  const [exporting, setExporting] = useState(false);
 
   // rows are kept newest-first (as the server returns them); older pages are
   // appended to the end as the user scrolls up.
@@ -87,12 +119,29 @@ export function ActivityView({
   };
 
   const copy = async () => {
+    const ok = await copyText(allText);
+    setCopyState(ok ? 'ok' : 'fail');
+    setTimeout(() => setCopyState('idle'), 1600);
+  };
+
+  // Export the FULL log (not just the loaded rows) as a .txt download.
+  const exportAll = async () => {
+    if (exporting) return;
+    setExporting(true);
     try {
-      await navigator.clipboard.writeText(allText);
-      setCopied(true);
-      setTimeout(() => setCopied(false), 1500);
-    } catch {
-      /* clipboard unavailable — user can still select the text manually */
+      const all = await exportActivityAction();
+      const text = [...all].reverse().map(terminalLine).join('\n'); // oldest → newest
+      const blob = new Blob([text + '\n'], { type: 'text/plain;charset=utf-8' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `activity-log-${new Date().toISOString().slice(0, 10)}.txt`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+    } finally {
+      setExporting(false);
     }
   };
 
@@ -112,12 +161,29 @@ export function ActivityView({
           <span className="font-mono text-xs text-slate-500">
             airhouse@activity:~$ tail -f activity.log
           </span>
-          <button
-            onClick={copy}
-            className="rounded border border-slate-700 px-2 py-1 text-xs text-slate-300 hover:bg-slate-800"
-          >
-            {copied ? 'Copied ✓' : 'Copy loaded'}
-          </button>
+          <div className="flex items-center gap-2">
+            <button
+              onClick={copy}
+              title="Copy the entries loaded so far"
+              className={`rounded border px-2 py-1 text-xs transition-all duration-200 ${
+                copyState === 'ok'
+                  ? 'scale-105 border-emerald-500 bg-emerald-600 text-white'
+                  : copyState === 'fail'
+                    ? 'border-red-500 bg-red-600/80 text-white'
+                    : 'border-slate-700 text-slate-300 hover:bg-slate-800'
+              }`}
+            >
+              {copyState === 'ok' ? 'Copied ✓' : copyState === 'fail' ? 'Failed' : 'Copy'}
+            </button>
+            <button
+              onClick={exportAll}
+              disabled={exporting}
+              title="Download the entire log as a .txt file"
+              className="rounded border border-slate-700 px-2 py-1 text-xs text-slate-300 hover:bg-slate-800 disabled:opacity-60"
+            >
+              {exporting ? 'Exporting…' : 'Export'}
+            </button>
+          </div>
         </div>
         <div
           ref={scrollRef}
