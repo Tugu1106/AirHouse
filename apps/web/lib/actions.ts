@@ -32,7 +32,8 @@ import {
   type ItemStatus,
   type EmployeeStatus,
 } from '@airlink/core';
-import { requireActor, requireMasterAdmin } from './auth';
+import { getRole, requireActor, requireMasterAdmin } from './auth';
+import { getActivityPage, ACTIVITY_PAGE_SIZE, type ActivityRow } from './activity';
 import {
   getCurrentUser,
   getSessionId,
@@ -139,6 +140,16 @@ export async function resetEmployeeLoginAction(id: string): Promise<ActionResult
   } catch (e) {
     return { ok: false, error: errMessage(e) };
   }
+}
+
+// --- activity log (admin only) --------------------------------------------
+
+/** Fetch an older page of activity rows for the Log's infinite scroll. */
+export async function loadActivityAction(offset: number): Promise<ActivityRow[]> {
+  const role = await getRole();
+  if (role.role !== 'admin') return [];
+  const safeOffset = Number.isFinite(offset) && offset > 0 ? Math.floor(offset) : 0;
+  return getActivityPage(safeOffset, ACTIVITY_PAGE_SIZE);
 }
 
 // --- admin management (master admin only) ---------------------------------

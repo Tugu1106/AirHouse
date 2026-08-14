@@ -1,18 +1,9 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import Link from 'next/link';
-
-export interface ActivityRow {
-  id: string;
-  when: string; // ISO timestamp
-  actor: string;
-  action: string; // raw: create/update/transfer/soft_delete
-  entity: string; // item/employee/branch
-  target: string;
-  targetHref?: string;
-  detail: string;
-}
+import { loadActivityAction } from '@/lib/actions';
+import type { ActivityRow } from '@/lib/activity';
 
 const ACTION_LABEL: Record<string, string> = {
   create: 'Created',
@@ -38,9 +29,23 @@ function terminalLine(r: ActivityRow): string {
   return `${ts(r.when)}  ${r.actor} ${verb} ${thing}${r.detail ? ` — ${r.detail}` : ''}`;
 }
 
-export function ActivityView({ rows }: { rows: ActivityRow[] }) {
+export function ActivityView({
+  initialRows,
+  pageSize,
+  initialHasMore,
+}: {
+  initialRows: ActivityRow[];
+  pageSize: number;
+  initialHasMore: boolean;
+}) {
   const [view, setView] = useState<'table' | 'terminal'>('terminal');
   const [copied, setCopied] = useState(false);
+
+  // rows are kept newest-first (as the server returns them); older pages are
+  // appended to the end as the user scrolls up in the terminal.
+  const [rows, setRows] = useState<ActivityRow[]>(initialRows);
+  const [hasMore, setHasMore] = useState(initialHasMore);
+  const [loading, setLoading] = useState(false);
 
   useEffect(() => {
     const v = localStorage.getItem('activity_log_view');
@@ -50,7 +55,55 @@ export function ActivityView({ rows }: { rows: ActivityRow[] }) {
     localStorage.setItem('activity_log_view', view);
   }, [view]);
 
-  const allText = rows.map(terminalLine).join('\n');
+  // Terminal renders oldest→newest so the newest sits at the bottom.
+  const ordered = useMemo(() => [...rows].reverse(), [rows]);
+  const allText = useMemo(() => ordered.map(terminalLine).join('\n'), [ordered]);
+
+  const scrollRef = useRef<HTMLDivElement>(null);
+  const contentRef = useRef<HTMLPreElement>(null);
+  const loadingRef = useRef(false);
+  const restore = useRef(false);
+  const prevContentH = useRef(0);
+
+  const loadOlder = useCallback(async () => {
+    if (loadingRef.current || !hasMore) return;
+    loadingRef.current = true;
+    setLoading(true);
+    prevContentH.current = contentRef.current?.offsetHeight ?? 0;
+    restore.current = true;
+    try {
+      const older = await loadActivityAction(rows.length);
+      if (older.length > 0) setRows((r) => [...r, ...older]);
+      setHasMore(older.length === pageSize);
+    } finally {
+      setLoading(false);
+      loadingRef.current = false;
+    }
+  }, [hasMore, rows.length, pageSize]);
+
+  // After older rows are prepended (they render at the top), keep the viewport
+  // steady by nudging scrollTop down by the height that was just added.
+  useLayoutEffect(() => {
+    if (restore.current && scrollRef.current && contentRef.current) {
+      const delta = contentRef.current.offsetHeight - prevContentH.current;
+      scrollRef.current.scrollTop += delta;
+      restore.current = false;
+    }
+  }, [rows]);
+
+  // Land at the bottom (newest) when the terminal view opens.
+  useEffect(() => {
+    if (view === 'terminal' && scrollRef.current) {
+      scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
+    }
+  }, [view]);
+
+  const onScroll = () => {
+    const el = scrollRef.current;
+    if (!el || loadingRef.current || !hasMore) return;
+    if (el.scrollTop <= 48) loadOlder();
+  };
+
   const copy = async () => {
     try {
       await navigator.clipboard.writeText(allText);
@@ -67,7 +120,7 @@ export function ActivityView({ rows }: { rows: ActivityRow[] }) {
         <div>
           <h1 className="text-xl font-semibold text-white">Activity log</h1>
           <p className="text-sm text-slate-400">
-            Every change and who made it — read-only. {rows.length} most recent actions.
+            Every change and who made it — read-only. Newest at the bottom; scroll up for older.
           </p>
         </div>
         <div className="flex overflow-hidden rounded-md border border-slate-700 text-sm">
@@ -95,9 +148,9 @@ export function ActivityView({ rows }: { rows: ActivityRow[] }) {
       </div>
 
       {view === 'table' ? (
-        <div className="overflow-x-auto rounded-lg border border-slate-800 bg-slate-900">
+        <div className="max-h-[70vh] overflow-auto rounded-lg border border-slate-800 bg-slate-900">
           <table className="min-w-full divide-y divide-slate-800 text-sm">
-            <thead className="bg-slate-800/50 text-left text-xs uppercase tracking-wide text-slate-400">
+            <thead className="sticky top-0 bg-slate-800/90 text-left text-xs uppercase tracking-wide text-slate-400 backdrop-blur">
               <tr>
                 <th className="px-4 py-3">When</th>
                 <th className="px-4 py-3">Who</th>
@@ -148,18 +201,38 @@ export function ActivityView({ rows }: { rows: ActivityRow[] }) {
         <div className="overflow-hidden rounded-lg border border-slate-800 bg-[#0a0e17]">
           <div className="flex items-center justify-between border-b border-slate-800 px-3 py-2">
             <span className="font-mono text-xs text-slate-500">
-              airhouse@activity:~$ tail -n {rows.length} activity.log
+              airhouse@activity:~$ tail -f activity.log
             </span>
             <button
               onClick={copy}
               className="rounded border border-slate-700 px-2 py-1 text-xs text-slate-300 hover:bg-slate-800"
             >
-              {copied ? 'Copied ✓' : 'Copy all'}
+              {copied ? 'Copied ✓' : 'Copy loaded'}
             </button>
           </div>
-          <pre className="overflow-x-auto px-3 py-3 font-mono text-xs leading-relaxed text-emerald-300 selection:bg-emerald-500/30">
-            {rows.length === 0 ? '# no activity yet' : allText}
-          </pre>
+          <div
+            ref={scrollRef}
+            onScroll={onScroll}
+            className="flex h-[65vh] flex-col overflow-y-auto px-3 py-3"
+          >
+            {/* mt-auto keeps a short log pinned to the bottom (newest); once it
+                overflows the margin collapses and normal scroll-up kicks in. */}
+            <div className="mt-auto">
+              <div className="mb-2 text-center font-mono text-[11px] text-slate-600">
+                {loading
+                  ? 'loading older…'
+                  : hasMore
+                    ? '↑ scroll up for older entries'
+                    : '— beginning of log —'}
+              </div>
+              <pre
+                ref={contentRef}
+                className="whitespace-pre-wrap break-words font-mono text-xs leading-relaxed text-emerald-300 selection:bg-emerald-500/30"
+              >
+                {rows.length === 0 ? '# no activity yet' : allText}
+              </pre>
+            </div>
+          </div>
         </div>
       )}
     </main>

@@ -70,7 +70,7 @@ export interface ActivityEntry extends AuditLog {
  * resolved. Powers the read-only admin Activity Log. Only admins can mutate, so
  * this is inherently a log of admin actions, attributed per actor.
  */
-export async function listActivity(limit = 300): Promise<ActivityEntry[]> {
+export async function listActivity(limit = 100, offset = 0): Promise<ActivityEntry[]> {
   const db = getDb();
   const rows = await db
     .selectFrom('audit_log as a')
@@ -103,6 +103,7 @@ export async function listActivity(limit = 300): Promise<ActivityEntry[]> {
     ])
     .orderBy('a.created_at', 'desc')
     .limit(limit)
+    .offset(offset)
     .execute();
   return rows as unknown as ActivityEntry[];
 }
