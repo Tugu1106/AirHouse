@@ -1,4 +1,5 @@
 import { redirect } from 'next/navigation';
+import Link from 'next/link';
 import {
   listItems,
   listBranches,
@@ -56,7 +57,10 @@ export default async function MePage() {
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img src="/logo.png" alt="Airlink Assets" className="h-12 w-auto" />
           <span className="text-base font-semibold text-white">My profile</span>
-          <form action={signOutAction} className="ml-auto">
+          <Link href="/account" className="btn-ghost ml-auto">
+            Change password
+          </Link>
+          <form action={signOutAction}>
             <button className="btn-ghost">Sign out</button>
           </form>
         </div>

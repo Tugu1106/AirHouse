@@ -107,6 +107,27 @@ export async function setPasswordAction(
   redirect(role === 'admin' ? '/map' : '/me');
 }
 
+export async function changePasswordAction(
+  _prev: ActionResult | null,
+  formData: FormData,
+): Promise<ActionResult> {
+  const current = String(formData.get('current') ?? '');
+  const password = String(formData.get('password') ?? '');
+  const confirm = String(formData.get('confirm') ?? '');
+  try {
+    const user = await getCurrentUser();
+    if (!user) return { ok: false, error: 'Not authenticated' };
+    if (password.length < 8) return { ok: false, error: 'New password must be at least 8 characters.' };
+    if (password !== confirm) return { ok: false, error: 'New passwords do not match.' };
+    const ok = await verifyCredentials(user.email, current);
+    if (!ok) return { ok: false, error: 'Current password is incorrect.' };
+    await setUserPassword(user.id, password);
+  } catch (e) {
+    return { ok: false, error: errMessage(e) };
+  }
+  return { ok: true };
+}
+
 export async function signOutAction(): Promise<void> {
   const id = await getSessionId();
   if (id) {

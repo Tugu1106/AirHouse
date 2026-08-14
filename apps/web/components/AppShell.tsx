@@ -53,6 +53,9 @@ export function AppShell({ isMaster, children }: { isMaster: boolean; children: 
 
           <div className="ml-auto flex items-center gap-3 text-sm text-slate-400">
             <span className="hidden text-slate-500 sm:inline">{userEmail}</span>
+            <Link href="/account" className="btn-ghost">
+              Change password
+            </Link>
             <form action={signOutAction}>
               <button className="btn-ghost">Sign out</button>
             </form>
