@@ -173,7 +173,7 @@ export function ActivityView({
                     : 'border-slate-700 text-slate-300 hover:bg-slate-800'
               }`}
             >
-              {copyState === 'ok' ? 'Copied ✓' : copyState === 'fail' ? 'Failed' : 'Copy'}
+              {copyState === 'ok' ? 'Copied ✓' : copyState === 'fail' ? 'Failed' : 'Copy loaded'}
             </button>
             <button
               onClick={exportAll}
@@ -181,7 +181,7 @@ export function ActivityView({
               title="Download the entire log as a .txt file"
               className="rounded border border-slate-700 px-2 py-1 text-xs text-slate-300 hover:bg-slate-800 disabled:opacity-60"
             >
-              {exporting ? 'Exporting…' : 'Export'}
+              {exporting ? 'Exporting…' : 'Full export'}
             </button>
           </div>
         </div>
