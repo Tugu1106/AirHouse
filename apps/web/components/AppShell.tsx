@@ -3,7 +3,7 @@
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { useData } from './DataProvider';
-import { signOutAction } from '@/lib/actions';
+import { AccountMenu } from './AccountMenu';
 
 const NAV = [
   { href: '/map', label: 'Map' },
@@ -17,8 +17,8 @@ export function AppShell({ isMaster, children }: { isMaster: boolean; children: 
   const { userEmail } = useData();
   const pathname = usePathname();
 
-  // The Admins link is master-admin only (the page + actions enforce it too).
-  const nav = isMaster ? [...NAV, { href: '/admins', label: 'Admins' }] : NAV;
+  // Admins now lives in the account menu ("Control admins"), not the nav.
+  const nav = NAV;
 
   const isActive = (href: string) =>
     pathname === href ||
@@ -55,15 +55,9 @@ export function AppShell({ isMaster, children }: { isMaster: boolean; children: 
             ))}
           </nav>
 
-          {/* Right: account controls */}
-          <div className="flex min-w-0 flex-1 items-center justify-end gap-3 text-sm text-slate-400">
-            <span className="hidden text-slate-500 sm:inline">{userEmail}</span>
-            <Link href="/account" className="btn-ghost">
-              Change password
-            </Link>
-            <form action={signOutAction}>
-              <button className="btn-ghost">Sign out</button>
-            </form>
+          {/* Right: single account menu */}
+          <div className="flex min-w-0 flex-1 items-center justify-end">
+            <AccountMenu userEmail={userEmail} isMaster={isMaster} />
           </div>
         </div>
       </header>
