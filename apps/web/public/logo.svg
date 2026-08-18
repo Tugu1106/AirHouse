@@ -1,0 +1,6 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 240 64" role="img" aria-label="AIRHOUSE">
+  <rect x="0" y="0" width="240" height="64" rx="12" fill="#1291D6"/>
+  <text x="120" y="43" text-anchor="middle"
+        font-family="Arial, Helvetica, 'Segoe UI', sans-serif"
+        font-weight="800" font-size="32" letter-spacing="1.5" fill="#ffffff">AIRHOUSE</text>
+</svg>
