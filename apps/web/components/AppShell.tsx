@@ -32,7 +32,8 @@ export function AppShell({ isMaster, children }: { isMaster: boolean; children: 
         <div className="mx-auto flex max-w-7xl items-center gap-4 px-6 py-3">
           <Link href="/map" aria-label="Airlink Assets" className="shrink-0">
             {/* eslint-disable-next-line @next/next/no-img-element */}
-            <span aria-hidden className="block h-10 w-[150px]" />
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img src="/favicon-32.png" alt="AIRHOUSE" className="h-9 w-9" />
           </Link>
 
           <nav className="flex items-center gap-1 text-sm">
