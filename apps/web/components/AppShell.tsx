@@ -29,22 +29,25 @@ export function AppShell({ isMaster, children }: { isMaster: boolean; children: 
   return (
     <div className="min-h-screen">
       <header className="sticky top-0 z-40 border-b border-slate-800/80 bg-[#0b1120]/80 backdrop-blur">
-        <div className="mx-auto flex max-w-7xl items-center gap-4 px-6 py-3">
-          <Link href="/map" aria-label="Airlink Assets" className="shrink-0">
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img src="/favicon-32.png" alt="AIRHOUSE" className="h-9 w-9" />
-          </Link>
+        <div className="mx-auto flex max-w-7xl items-center px-6 py-3">
+          {/* Left: favicon alone, far left */}
+          <div className="flex min-w-0 flex-1 justify-start">
+            <Link href="/map" aria-label="AIRHOUSE" className="shrink-0">
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img src="/favicon-32.png" alt="AIRHOUSE" className="h-9 w-9" />
+            </Link>
+          </div>
 
-          <nav className="flex items-center gap-1 text-sm">
+          {/* Center: navigation */}
+          <nav className="flex flex-1 items-center justify-center gap-1 text-sm">
             {nav.map((n) => (
               <Link
                 key={n.href}
                 href={n.href}
                 className={
                   isActive(n.href)
-                    ? 'rounded-md bg-slate-800 px-3 py-1.5 font-medium text-white'
-                    : 'rounded-md px-3 py-1.5 text-slate-400 hover:bg-slate-800/60 hover:text-slate-200'
+                    ? 'rounded-md bg-slate-800 px-3 py-1.5 font-bold text-white'
+                    : 'rounded-md px-3 py-1.5 font-bold text-white hover:bg-slate-800/60'
                 }
               >
                 {n.label}
@@ -52,7 +55,8 @@ export function AppShell({ isMaster, children }: { isMaster: boolean; children: 
             ))}
           </nav>
 
-          <div className="ml-auto flex items-center gap-3 text-sm text-slate-400">
+          {/* Right: account controls */}
+          <div className="flex min-w-0 flex-1 items-center justify-end gap-3 text-sm text-slate-400">
             <span className="hidden text-slate-500 sm:inline">{userEmail}</span>
             <Link href="/account" className="btn-ghost">
               Change password
