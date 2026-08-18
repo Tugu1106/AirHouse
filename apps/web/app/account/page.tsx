@@ -18,7 +18,7 @@ export default async function AccountPage() {
       <header className="sticky top-0 z-40 border-b border-slate-800/80 bg-[#0b1120]/80 backdrop-blur">
         <div className="mx-auto flex max-w-3xl items-center gap-3 px-6 py-3">
           {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img src="/logo.svg" alt="AIRHOUSE" className="h-10 w-auto" />
+          <span aria-hidden className="block h-10 w-[150px]" />
           <span className="text-base font-semibold text-white">Account</span>
           <form action={signOutAction} className="ml-auto">
             <button className="btn-ghost">Sign out</button>
