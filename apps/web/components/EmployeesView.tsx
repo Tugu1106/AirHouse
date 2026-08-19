@@ -246,14 +246,6 @@ export function EmployeeForm({
     }
   }, [state, onDone]);
 
-  // Position is free text: suggest the defaults plus any position already in use
-  // (which includes ones Claude/MCP created). Admin can also just type a new one.
-  const positionOptions = useMemo(() => {
-    const set = new Set<string>(EMPLOYEE_POSITIONS.map((p) => p.label));
-    for (const e of employees) if (e.position) set.add(e.position);
-    return [...set].sort((a, b) => a.localeCompare(b));
-  }, [employees]);
-
   if (createdTemp) {
     return (
       <div className="space-y-4">
@@ -298,18 +290,21 @@ export function EmployeeForm({
         </div>
         <div>
           <label className="block text-sm font-medium text-slate-300">Position</label>
-          <input
+          <select
             name="position"
-            list="position-options"
             defaultValue={emp?.position ?? DEFAULT_POSITION}
-            placeholder="Type or pick a position…"
-            className="mt-1 w-full rounded-md border border-slate-700 bg-slate-800 text-slate-100 placeholder-slate-500 px-3 py-2 text-sm"
-          />
-          <datalist id="position-options">
-            {positionOptions.map((o) => (
-              <option key={o} value={o} />
+            className="mt-1 w-full rounded-md border border-slate-700 bg-slate-800 text-slate-100 px-3 py-2 text-sm"
+          >
+            {/* keep an existing off-list value (old data) selectable on edit */}
+            {emp?.position && !EMPLOYEE_POSITIONS.some((p) => p.key === emp.position) && (
+              <option value={emp.position}>{emp.position}</option>
+            )}
+            {EMPLOYEE_POSITIONS.map((p) => (
+              <option key={p.key} value={p.key}>
+                {p.label}
+              </option>
             ))}
-          </datalist>
+          </select>
         </div>
         <div>
           <label className="block text-sm font-medium text-slate-300">Branch</label>

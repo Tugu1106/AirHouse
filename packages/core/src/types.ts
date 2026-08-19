@@ -41,18 +41,15 @@ export const EMPLOYEE_STATUSES: { key: EmployeeStatus; label: string }[] = [
 
 // Default position suggestions. Positions are FREE TEXT — the web form offers
 // these plus any already in use, and Claude/MCP can set any value. New
-// employees default to "Ticket Agency".
-export const DEFAULT_POSITION = 'Ticket Agency';
-
+// Employee positions are a fixed set of options.
 export const EMPLOYEE_POSITIONS: { key: string; label: string }[] = [
-  { key: 'Ticket Agency', label: 'Ticket Agency' },
   { key: 'Developer', label: 'Developer' },
-  { key: 'Human Resource', label: 'Human Resource' },
-  { key: 'Marketing', label: 'Marketing' },
+  { key: 'Ecommerce', label: 'Ecommerce' },
+  { key: 'HR manager', label: 'HR manager' },
   { key: 'Agent', label: 'Agent' },
-  { key: 'Finance', label: 'Finance' },
-  { key: 'Supervisor', label: 'Supervisor' },
 ];
+
+export const DEFAULT_POSITION = 'Developer';
 
 export interface Employee {
   id: UUID;
