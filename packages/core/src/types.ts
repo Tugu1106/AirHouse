@@ -49,7 +49,7 @@ export const EMPLOYEE_POSITIONS: { key: string; label: string }[] = [
   { key: 'Agent', label: 'Agent' },
 ];
 
-export const DEFAULT_POSITION = 'Developer';
+export const DEFAULT_POSITION = 'Agent';
 
 export interface Employee {
   id: UUID;
