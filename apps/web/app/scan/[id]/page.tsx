@@ -1,4 +1,5 @@
 import { getItemWithRelations, getItemType } from '@airlink/core';
+import { ScanDetails } from '@/components/ScanDetails';
 
 export const dynamic = 'force-dynamic';
 
@@ -70,6 +71,12 @@ export default async function ScanPage({ params }: { params: Promise<{ id: strin
   const owner = item.assignee?.name ?? null;
   const branch = item.branch?.name ?? '—';
 
+  // Full spec sheet from the item type's fields (empty slots shown as —).
+  const specs = (def?.fields ?? []).map((f) => ({
+    label: f.label,
+    value: str(props[f.key]) ?? '—',
+  }));
+
   return (
     <Shell>
       <div className="overflow-hidden rounded-xl border border-slate-800 bg-slate-900">
@@ -102,12 +109,16 @@ export default async function ScanPage({ params }: { params: Promise<{ id: strin
         </div>
 
         {/* Details */}
-        <dl className="px-5 pb-4">
+        <dl className="px-5">
           <Row label="Branch" value={branch} />
           {str(props.serial) && <Row label="Serial" value={str(props.serial)!} />}
           {str(props.model) && <Row label="Model" value={str(props.model)!} />}
           <Row label="Status" value={item.status.replace('_', ' ')} />
         </dl>
+
+        <div className="px-5 py-4">
+          <ScanDetails title={def?.label ?? item.type} subtitle={mainName || undefined} specs={specs} />
+        </div>
       </div>
 
       <p className="mt-4 text-center text-xs text-slate-600">
