@@ -31,14 +31,15 @@ export function ItemActions({
   const [modal, setModal] = useState<'edit' | 'transfer' | 'qr' | null>(null);
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [busy, setBusy] = useState(false);
-  const [qrSize, setQrSize] = useState<'sm' | 'md' | 'lg'>('md');
+  const [qrSize, setQrSize] = useState<'cm3' | 'cm10' | 'half'>('cm3');
 
-  // Physical printed label width (mm). The QR fills it minus a small quiet zone.
-  const SIZES: Record<'sm' | 'md' | 'lg', { mm: number; label: string }> = {
-    sm: { mm: 30, label: 'Small · 3cm' },
-    md: { mm: 40, label: 'Medium · 4cm' },
-    lg: { mm: 55, label: 'Large · 5.5cm' },
-  };
+  // Print presets: 3cm and 10cm labels sit top-left; ½ A4 is one big QR
+  // centered in the top half of the page. (Physical sizes handled in print CSS.)
+  const SIZE_OPTIONS: { key: 'cm3' | 'cm10' | 'half'; label: string }[] = [
+    { key: 'cm3', label: '3 cm' },
+    { key: 'cm10', label: '10 cm' },
+    { key: 'half', label: '½ A4' },
+  ];
 
   const done = () => {
     setModal(null);
@@ -108,8 +109,8 @@ export function ItemActions({
             Scan with any phone camera to see this item’s live owner.
           </p>
           <div
+            data-size={qrSize}
             className="qr-print-area mx-auto w-64 rounded-2xl bg-white p-5 text-center text-slate-900 shadow-lg ring-1 ring-slate-200"
-            style={{ ['--qr-w' as string]: `${SIZES[qrSize].mm}mm` } as React.CSSProperties}
           >
             <div className="qr-img" dangerouslySetInnerHTML={{ __html: qrSvg }} />
             <div className="mt-4 border-t border-slate-200 pt-3">
@@ -123,17 +124,17 @@ export function ItemActions({
           <div className="mt-4 flex flex-wrap items-center justify-center gap-2 text-sm">
             <span className="text-slate-500">Print size</span>
             <div className="flex overflow-hidden rounded-md border border-slate-700">
-              {(['sm', 'md', 'lg'] as const).map((s) => (
+              {SIZE_OPTIONS.map((o) => (
                 <button
-                  key={s}
-                  onClick={() => setQrSize(s)}
+                  key={o.key}
+                  onClick={() => setQrSize(o.key)}
                   className={
-                    qrSize === s
+                    qrSize === o.key
                       ? 'bg-slate-700 px-3 py-1 font-medium text-white'
                       : 'px-3 py-1 text-slate-400 hover:bg-slate-800'
                   }
                 >
-                  {SIZES[s].label}
+                  {o.label}
                 </button>
               ))}
             </div>
@@ -151,19 +152,34 @@ export function ItemActions({
           <style>{`
             .qr-img svg { width: 100%; height: auto; display: block; }
             @media print {
-              @page { margin: 8mm; }
+              @page { margin: 0; }
               body * { visibility: hidden !important; }
               .qr-print-area, .qr-print-area * { visibility: visible !important; }
               .qr-print-area {
-                position: fixed; left: 0; top: 0; margin: 0;
-                width: var(--qr-w, 40mm);
-                padding: 3mm;
+                position: fixed; margin: 0; text-align: center; color: #0b1120;
                 background: #fff !important;
                 box-shadow: none !important; border: none !important; border-radius: 0 !important;
               }
-              .qr-print-area .lbl-type { font-size: 8pt; margin-top: 2mm; }
-              .qr-print-area .lbl-name { font-size: 6.5pt; }
-              .qr-print-area .lbl-tag  { font-size: 7pt; margin-top: 0.5mm; }
+              /* 3cm — top-left */
+              .qr-print-area[data-size="cm3"]  { left: 8mm; top: 8mm; width: 30mm;  padding: 2mm; }
+              /* 10cm — top-left */
+              .qr-print-area[data-size="cm10"] { left: 8mm; top: 8mm; width: 100mm; padding: 4mm; }
+              /* half A4 — one big QR centered in the top half (210 x 148.5 mm) */
+              .qr-print-area[data-size="half"] {
+                left: 0; top: 0; width: 210mm; height: 148.5mm; padding: 0;
+                display: flex; flex-direction: column; align-items: center; justify-content: center;
+              }
+              .qr-print-area[data-size="half"] .qr-img { width: 120mm; }
+
+              .qr-print-area[data-size="cm3"]  .lbl-type { font-size: 7pt; }
+              .qr-print-area[data-size="cm3"]  .lbl-name { font-size: 6pt; }
+              .qr-print-area[data-size="cm3"]  .lbl-tag  { font-size: 6.5pt; }
+              .qr-print-area[data-size="cm10"] .lbl-type { font-size: 12pt; }
+              .qr-print-area[data-size="cm10"] .lbl-name { font-size: 9pt; }
+              .qr-print-area[data-size="cm10"] .lbl-tag  { font-size: 10pt; }
+              .qr-print-area[data-size="half"] .lbl-type { font-size: 16pt; }
+              .qr-print-area[data-size="half"] .lbl-name { font-size: 11pt; }
+              .qr-print-area[data-size="half"] .lbl-tag  { font-size: 13pt; }
             }
           `}</style>
         </Dialog>
