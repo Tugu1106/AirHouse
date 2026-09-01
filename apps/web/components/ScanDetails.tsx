@@ -33,17 +33,13 @@ export function ScanDetails({
 
       {open && (
         <div
-          className="animate-backdrop fixed inset-0 z-50 flex items-end justify-center bg-slate-950/70 backdrop-blur-sm sm:items-center sm:p-4"
+          className="animate-backdrop fixed inset-0 z-50 flex items-center justify-center bg-slate-950/70 p-4 backdrop-blur-sm"
           onClick={() => setOpen(false)}
         >
           <div
-            className="animate-modal flex max-h-[90dvh] w-full max-w-md flex-col overflow-hidden rounded-t-2xl border border-slate-700/60 bg-slate-900 shadow-2xl sm:max-h-[85vh] sm:rounded-2xl"
+            className="animate-modal flex max-h-[85dvh] w-full max-w-md flex-col overflow-hidden rounded-2xl border border-slate-700/60 bg-slate-900 shadow-2xl"
             onClick={(e) => e.stopPropagation()}
           >
-            {/* grabber (mobile bottom-sheet) */}
-            <div className="flex justify-center pt-2 sm:hidden">
-              <span className="h-1 w-10 rounded-full bg-slate-700" />
-            </div>
             <div className="flex shrink-0 items-center justify-between border-b border-slate-800 px-5 py-4">
               <div className="min-w-0">
                 <h2 className="truncate text-base font-semibold text-white">{title}</h2>
@@ -57,10 +53,7 @@ export function ScanDetails({
                 ✕
               </button>
             </div>
-            <dl
-              className="divide-y divide-slate-800 overflow-y-auto overscroll-contain px-5"
-              style={{ paddingBottom: 'calc(env(safe-area-inset-bottom) + 1.5rem)' }}
-            >
+            <dl className="divide-y divide-slate-800 overflow-y-auto overscroll-contain px-5 pb-2">
               {specs.map((s) => (
                 <div key={s.label} className="flex items-baseline justify-between gap-4 py-3">
                   <dt className="text-xs font-medium uppercase tracking-wide text-slate-500">
