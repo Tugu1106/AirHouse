@@ -4,7 +4,9 @@ import { NextResponse, type NextRequest } from 'next/server';
 // and logged-in users away from /login. The real authorization — valid session,
 // admin vs worker, forced password reset — happens in the server components and
 // actions, which can reach Postgres.
-const PUBLIC = ['/login'];
+// /scan is the public asset-tag lookup a QR opens — no login (any phone on the
+// internal network can view an item's live owner/branch/status).
+const PUBLIC = ['/login', '/scan'];
 
 export function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
