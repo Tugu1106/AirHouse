@@ -59,6 +59,7 @@ export default async function ItemHistoryPage({ params }: { params: Promise<{ id
   const empName = (eid: string | null) => employees.find((e) => e.id === eid)?.name ?? '—';
   const def = getItemType(item.type);
   const qrSvg = await QRCode.toString(scanUrl(id), { type: 'svg', margin: 0, width: 200 });
+  const assetTag = `AIR-${id.slice(0, 8).toUpperCase()}`;
 
   // A short identifier — no full spec sheet, just enough to know which unit.
   const mainName =
@@ -95,38 +96,50 @@ export default async function ItemHistoryPage({ params }: { params: Promise<{ id
         />
       </div>
 
-      <section className="panel p-6">
-        {/* Compact item summary */}
-        <div className="flex items-center gap-3">
-          <span className="grid h-11 w-11 shrink-0 place-items-center rounded-lg bg-slate-800 text-xl">
-            {ITEM_ICON[item.type] ?? '📦'}
-          </span>
-          <div className="min-w-0">
-            <h1 className="truncate text-lg font-semibold text-white">
-              {def?.label ?? item.type}
-              {item.deleted_at && <span className="ml-2 text-sm text-red-400">(deleted)</span>}
-            </h1>
-            <p className="truncate text-sm text-slate-400">{mainName}</p>
+      <section className="panel animate-rise overflow-hidden">
+        {/* Hero */}
+        <div className="border-b border-slate-800 bg-gradient-to-br from-brand/10 via-transparent to-transparent p-6">
+          <div className="flex items-start gap-4">
+            <span className="grid h-14 w-14 shrink-0 place-items-center rounded-xl bg-gradient-to-br from-slate-700 to-slate-800 text-2xl ring-1 ring-slate-700/60">
+              {ITEM_ICON[item.type] ?? '📦'}
+            </span>
+            <div className="min-w-0 flex-1">
+              <div className="flex items-center gap-2">
+                <h1 className="truncate text-xl font-semibold text-white">{def?.label ?? item.type}</h1>
+                {item.deleted_at && (
+                  <span className="shrink-0 rounded-full bg-red-500/15 px-2 py-0.5 text-xs font-medium text-red-300 ring-1 ring-red-500/30">
+                    deleted
+                  </span>
+                )}
+              </div>
+              {mainName && <p className="truncate text-sm text-slate-400">{mainName}</p>}
+              <span className="mt-2 inline-block rounded-md bg-slate-800/80 px-2 py-0.5 font-mono text-xs tracking-widest text-slate-400 ring-1 ring-slate-700">
+                {assetTag}
+              </span>
+            </div>
+            <span
+              className={`shrink-0 rounded-full px-3 py-1 text-xs font-medium ring-1 ${
+                ITEM_STATUS_STYLE[item.status] ?? ITEM_STATUS_STYLE.retired
+              }`}
+            >
+              {item.status.replace('_', ' ')}
+            </span>
           </div>
-          <span
-            className={`ml-auto shrink-0 rounded-full px-2.5 py-0.5 text-xs font-medium ring-1 ${
-              ITEM_STATUS_STYLE[item.status] ?? ITEM_STATUS_STYLE.retired
-            }`}
-          >
-            {item.status.replace('_', ' ')}
-          </span>
-        </div>
-        <div className="mt-3 flex flex-wrap gap-x-5 gap-y-1 text-xs text-slate-500">
-          <span>
-            Branch: <span className="text-slate-300">{item.branch?.name ?? '—'}</span>
-          </span>
-          <span>
-            Assigned: <span className="text-slate-300">{item.assignee?.name ?? 'Unassigned'}</span>
-          </span>
+
+          <div className="mt-4 flex flex-wrap gap-2">
+            <div className="inline-flex items-center gap-1.5 rounded-lg bg-slate-800/60 px-3 py-1.5 text-xs ring-1 ring-slate-700/60">
+              <span className="text-slate-500">Branch</span>
+              <span className="font-medium text-slate-200">{item.branch?.name ?? '—'}</span>
+            </div>
+            <div className="inline-flex items-center gap-1.5 rounded-lg bg-slate-800/60 px-3 py-1.5 text-xs ring-1 ring-slate-700/60">
+              <span className="text-slate-500">Assigned</span>
+              <span className="font-medium text-slate-200">{item.assignee?.name ?? 'Unassigned'}</span>
+            </div>
+          </div>
         </div>
 
         {/* Timeline */}
-        <div className="mt-6 border-t border-slate-800 pt-5">
+        <div className="p-6">
           <h2 className="mb-4 text-sm font-semibold text-slate-300">History</h2>
           {timeline.length === 0 ? (
             <p className="text-sm text-slate-500">No history yet.</p>

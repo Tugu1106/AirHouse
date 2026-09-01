@@ -7,6 +7,7 @@ import { getItemType } from '@airlink/core/itemTypes';
 import { EditItemForm, TransferForm, Dialog } from './ItemsView';
 import { ConfirmDialog } from './ConfirmDialog';
 import { softDeleteItemAction, restoreItemAction } from '@/lib/actions';
+import { IconEdit, IconTransfer, IconTrash, IconRestore, IconQr, IconPrint } from './icons';
 
 type BranchLite = { id: string; name: string };
 type EmployeeLite = { id: string; name: string; branch_id: string | null };
@@ -42,7 +43,8 @@ export function ItemActions({
   const tag = `AIR-${item.id.slice(0, 8).toUpperCase()}`;
   const typeLabel = getItemType(item.type)?.label ?? item.type;
 
-  const btn = 'rounded-md border border-slate-700 px-3 py-1.5 text-sm text-slate-200 hover:bg-slate-800';
+  const btn =
+    'inline-flex items-center gap-1.5 rounded-lg border border-slate-700 px-3 py-1.5 text-sm text-slate-200 transition hover:border-slate-600 hover:bg-slate-800';
 
   return (
     <div className="flex flex-wrap items-center gap-2">
@@ -55,28 +57,31 @@ export function ItemActions({
             setBusy(false);
             router.refresh();
           }}
-          className="rounded-md border border-emerald-800 px-3 py-1.5 text-sm text-emerald-300 hover:bg-emerald-950 disabled:opacity-50"
+          className="inline-flex items-center gap-1.5 rounded-lg border border-emerald-800/70 px-3 py-1.5 text-sm text-emerald-300 transition hover:border-emerald-700 hover:bg-emerald-950/60 disabled:opacity-50"
         >
-          Restore
+          <IconRestore /> Restore
         </button>
       ) : (
         <>
           <button onClick={() => setModal('edit')} className={btn}>
-            Edit
+            <IconEdit /> Edit
           </button>
           <button onClick={() => setModal('transfer')} className={btn}>
-            Transfer
+            <IconTransfer /> Transfer
           </button>
           <button
             onClick={() => setConfirmDelete(true)}
-            className="rounded-md border border-red-900 px-3 py-1.5 text-sm text-red-300 hover:bg-red-950"
+            className="inline-flex items-center gap-1.5 rounded-lg border border-red-900/70 px-3 py-1.5 text-sm text-red-300 transition hover:border-red-800 hover:bg-red-950/60"
           >
-            Delete
+            <IconTrash /> Delete
           </button>
         </>
       )}
-      <button onClick={() => setModal('qr')} className={btn}>
-        See QR
+      <button
+        onClick={() => setModal('qr')}
+        className="inline-flex items-center gap-1.5 rounded-lg border border-brand/40 bg-brand/10 px-3 py-1.5 text-sm font-medium text-brand-light transition hover:bg-brand/20"
+      >
+        <IconQr /> See QR
       </button>
 
       {modal === 'edit' && (
@@ -91,19 +96,24 @@ export function ItemActions({
       )}
       {modal === 'qr' && (
         <Dialog title="Asset QR" onClose={() => setModal(null)}>
-          <div className="qr-print-area mx-auto w-64 rounded-lg bg-white p-4 text-center text-slate-900">
+          <p className="mb-4 text-center text-sm text-slate-400">
+            Scan with any phone camera to see this item’s live owner.
+          </p>
+          <div className="qr-print-area mx-auto w-64 rounded-2xl bg-white p-5 text-center text-slate-900 shadow-lg ring-1 ring-slate-200">
             <div className="qr-img" dangerouslySetInnerHTML={{ __html: qrSvg }} />
-            <div className="mt-2 text-sm font-bold">{typeLabel}</div>
-            {name && <div className="text-xs text-slate-600">{name}</div>}
-            <div className="mt-1 font-mono text-xs tracking-wide">{tag}</div>
+            <div className="mt-4 border-t border-slate-200 pt-3">
+              <div className="text-sm font-bold">{typeLabel}</div>
+              {name && <div className="text-xs text-slate-500">{name}</div>}
+              <div className="mt-1 font-mono text-xs tracking-widest text-slate-700">{tag}</div>
+            </div>
           </div>
-          <p className="mt-3 break-all text-center text-xs text-slate-500">{scanLink}</p>
-          <div className="mt-4 flex justify-end">
+          <p className="mt-3 break-all text-center text-[11px] text-slate-600">{scanLink}</p>
+          <div className="mt-5 flex justify-center">
             <button
               onClick={() => window.print()}
-              className="rounded-md bg-brand px-4 py-2 text-sm font-medium text-white hover:bg-brand-dark"
+              className="inline-flex items-center gap-2 rounded-lg bg-brand px-5 py-2 text-sm font-medium text-white shadow-[0_0_20px_-6px_rgba(14,165,233,0.7)] transition hover:bg-brand-light"
             >
-              🖨 Print
+              <IconPrint /> Print label
             </button>
           </div>
           <style>{`
