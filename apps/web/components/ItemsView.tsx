@@ -11,18 +11,11 @@ import {
   addItemAction,
   updateItemAction,
   transferItemAction,
-  softDeleteItemAction,
-  restoreItemAction,
   type ActionResult,
 } from '@/lib/actions';
 import { SubmitButton } from './SubmitButton';
-import { ConfirmDialog } from './ConfirmDialog';
 
-type Modal =
-  | { mode: 'add' }
-  | { mode: 'edit'; item: ItemWithRelations }
-  | { mode: 'transfer'; item: ItemWithRelations }
-  | null;
+type Modal = { mode: 'add' } | null;
 
 const typeLabel = (key: string) => getItemType(key)?.label ?? key;
 
@@ -34,8 +27,6 @@ function propertyValue(item: ItemWithRelations, key: string): string {
 export function ItemsView({ scopeBranchId }: { scopeBranchId?: string }) {
   const { items, branches, employees, refresh } = useData();
   const [modal, setModal] = useState<Modal>(null);
-  const [busyId, setBusyId] = useState<string | null>(null);
-  const [confirmDelete, setConfirmDelete] = useState<ItemWithRelations | null>(null);
 
   const [search, setSearch] = useState('');
   const [type, setType] = useState('');
@@ -97,16 +88,6 @@ export function ItemsView({ scopeBranchId }: { scopeBranchId?: string }) {
     }
     return out;
   }, [detailed, visible]);
-
-  async function runRowAction(id: string, action: (id: string) => Promise<ActionResult>) {
-    setBusyId(id);
-    try {
-      await action(id);
-      await refresh();
-    } finally {
-      setBusyId(null);
-    }
-  }
 
   const cols = (scopeBranchId ? 6 : 7) + detailFields.length;
 
@@ -253,34 +234,13 @@ export function ItemsView({ scopeBranchId }: { scopeBranchId?: string }) {
                   <StatusBadge status={item.status} />
                 </td>
                 <td className="px-4 py-3">
-                  <div className="flex items-center justify-end gap-2 text-sm">
-                    <Link href={`/item/${item.id}`} className="text-slate-400 hover:text-brand">
-                      History
+                  <div className="flex items-center justify-end">
+                    <Link
+                      href={`/item/${item.id}`}
+                      className="rounded-md border border-slate-700 px-3 py-1 text-sm text-slate-200 hover:bg-slate-800"
+                    >
+                      View
                     </Link>
-                    {!item.deleted_at ? (
-                      <>
-                        <button onClick={() => setModal({ mode: 'edit', item })} className="text-slate-400 hover:text-brand">
-                          Edit
-                        </button>
-                        <button onClick={() => setModal({ mode: 'transfer', item })} className="text-slate-400 hover:text-brand">
-                          Transfer
-                        </button>
-                        <button
-                          onClick={() => setConfirmDelete(item)}
-                          className="text-red-500 hover:text-red-700"
-                        >
-                          Delete
-                        </button>
-                      </>
-                    ) : (
-                      <button
-                        disabled={busyId === item.id}
-                        onClick={() => runRowAction(item.id, restoreItemAction)}
-                        className="text-emerald-600 hover:text-emerald-800 disabled:opacity-50"
-                      >
-                        Restore
-                      </button>
-                    )}
                   </div>
                 </td>
               </tr>
@@ -301,45 +261,6 @@ export function ItemsView({ scopeBranchId }: { scopeBranchId?: string }) {
             }}
           />
         </Dialog>
-      )}
-      {modal?.mode === 'edit' && (
-        <Dialog title="Edit item" onClose={() => setModal(null)}>
-          <EditItemForm
-            item={modal.item}
-            onDone={async () => {
-              await refresh();
-              setModal(null);
-            }}
-          />
-        </Dialog>
-      )}
-      {modal?.mode === 'transfer' && (
-        <Dialog title="Transfer item" onClose={() => setModal(null)}>
-          <TransferForm
-            item={modal.item}
-            branches={branches}
-            employees={employees}
-            onDone={async () => {
-              await refresh();
-              setModal(null);
-            }}
-          />
-        </Dialog>
-      )}
-
-      {confirmDelete && (
-        <ConfirmDialog
-          title="Delete item?"
-          message="Move this item to deleted? It stays in history and can be restored."
-          confirmLabel="Yes, delete"
-          danger
-          onCancel={() => setConfirmDelete(null)}
-          onConfirm={async () => {
-            await softDeleteItemAction(confirmDelete.id);
-            await refresh();
-            setConfirmDelete(null);
-          }}
-        />
       )}
     </div>
   );
@@ -522,7 +443,7 @@ function AddItemForm({
   );
 }
 
-function EditItemForm({ item, onDone }: { item: ItemWithRelations; onDone: () => void }) {
+export function EditItemForm({ item, onDone }: { item: ItemWithRelations; onDone: () => void }) {
   const [state, formAction] = useActionState<ActionResult | null, FormData>(updateItemAction, null);
   useDoneOnSuccess(state, onDone);
   const def = getItemType(item.type);
@@ -552,7 +473,7 @@ function EditItemForm({ item, onDone }: { item: ItemWithRelations; onDone: () =>
   );
 }
 
-function TransferForm({
+export function TransferForm({
   item,
   branches,
   employees,

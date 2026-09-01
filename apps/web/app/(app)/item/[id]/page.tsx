@@ -1,4 +1,5 @@
 import { notFound } from 'next/navigation';
+import QRCode from 'qrcode';
 import {
   getItemWithRelations,
   listAuditForItem,
@@ -6,8 +7,9 @@ import {
   listEmployees,
   getItemType,
 } from '@airlink/core';
-import Link from 'next/link';
 import { BackButton } from '@/components/BackButton';
+import { ItemActions } from '@/components/ItemActions';
+import { scanUrl } from '@/lib/config';
 
 export const dynamic = 'force-dynamic';
 
@@ -56,6 +58,7 @@ export default async function ItemHistoryPage({ params }: { params: Promise<{ id
   const branchName = (bid: string | null) => branches.find((b) => b.id === bid)?.name ?? '—';
   const empName = (eid: string | null) => employees.find((e) => e.id === eid)?.name ?? '—';
   const def = getItemType(item.type);
+  const qrSvg = await QRCode.toString(scanUrl(id), { type: 'svg', margin: 0, width: 200 });
 
   // A short identifier — no full spec sheet, just enough to know which unit.
   const mainName =
@@ -81,15 +84,15 @@ export default async function ItemHistoryPage({ params }: { params: Promise<{ id
 
   return (
     <main className="mx-auto max-w-2xl space-y-4 px-6 py-6">
-      <div className="flex items-center justify-between">
+      <div className="flex flex-wrap items-center justify-between gap-3">
         <BackButton />
-        <Link
-          href={`/label/${id}`}
-          target="_blank"
-          className="rounded-md border border-slate-700 px-3 py-1.5 text-sm text-slate-200 hover:bg-slate-800"
-        >
-          🖨 Print label
-        </Link>
+        <ItemActions
+          item={item}
+          branches={branches}
+          employees={employees.filter((e) => !e.deleted_at)}
+          qrSvg={qrSvg}
+          scanLink={scanUrl(id)}
+        />
       </div>
 
       <section className="panel p-6">
