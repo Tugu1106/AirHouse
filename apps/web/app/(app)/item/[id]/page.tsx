@@ -6,6 +6,7 @@ import {
   listEmployees,
   getItemType,
 } from '@airlink/core';
+import Link from 'next/link';
 import { BackButton } from '@/components/BackButton';
 
 export const dynamic = 'force-dynamic';
@@ -80,7 +81,16 @@ export default async function ItemHistoryPage({ params }: { params: Promise<{ id
 
   return (
     <main className="mx-auto max-w-2xl space-y-4 px-6 py-6">
-      <BackButton />
+      <div className="flex items-center justify-between">
+        <BackButton />
+        <Link
+          href={`/label/${id}`}
+          target="_blank"
+          className="rounded-md border border-slate-700 px-3 py-1.5 text-sm text-slate-200 hover:bg-slate-800"
+        >
+          🖨 Print label
+        </Link>
+      </div>
 
       <section className="panel p-6">
         {/* Compact item summary */}
