@@ -12,6 +12,7 @@ import {
 import type { Employee } from '@airlink/core';
 import { useData } from './DataProvider';
 import { Dialog } from './ItemsView';
+import { Select } from './Select';
 import { SubmitButton } from './SubmitButton';
 import {
   createEmployeeAction,
@@ -126,28 +127,35 @@ export function EmployeesView() {
           placeholder="Search name, position, phone…"
           className="w-56 rounded-md border border-slate-700 bg-slate-800 text-slate-100 placeholder-slate-500 px-2 py-1.5 text-sm"
         />
-        <select value={branchId} onChange={(e) => setBranchId(e.target.value)} className="rounded-md border border-slate-700 bg-slate-800 text-slate-100 placeholder-slate-500 px-2 py-1.5 text-sm">
-          <option value="">All branches</option>
-          {branches.map((b) => (
-            <option key={b.id} value={b.id}>
-              {b.name}
-            </option>
-          ))}
-        </select>
-        <select value={status} onChange={(e) => setStatus(e.target.value)} className="rounded-md border border-slate-700 bg-slate-800 text-slate-100 placeholder-slate-500 px-2 py-1.5 text-sm">
-          <option value="">All statuses</option>
-          {EMPLOYEE_STATUSES.map((s) => (
-            <option key={s.key} value={s.key}>
-              {s.label}
-            </option>
-          ))}
-        </select>
-        <select value={login} onChange={(e) => setLogin(e.target.value)} className="rounded-md border border-slate-700 bg-slate-800 text-slate-100 placeholder-slate-500 px-2 py-1.5 text-sm">
-          <option value="">Any login</option>
-          <option value="signed_in">Signed in</option>
-          <option value="invited">Invited (not yet)</option>
-          <option value="none">No login</option>
-        </select>
+        <Select
+          value={branchId}
+          onChange={setBranchId}
+          className="w-40"
+          options={[
+            { value: '', label: 'All branches' },
+            ...branches.map((b) => ({ value: b.id, label: b.name })),
+          ]}
+        />
+        <Select
+          value={status}
+          onChange={setStatus}
+          className="w-40"
+          options={[
+            { value: '', label: 'All statuses' },
+            ...EMPLOYEE_STATUSES.map((s) => ({ value: s.key, label: s.label })),
+          ]}
+        />
+        <Select
+          value={login}
+          onChange={setLogin}
+          className="w-40"
+          options={[
+            { value: '', label: 'Any login' },
+            { value: 'signed_in', label: 'Signed in' },
+            { value: 'invited', label: 'Invited (not yet)' },
+            { value: 'none', label: 'No login' },
+          ]}
+        />
       </div>
 
       <div className="overflow-x-auto rounded-lg border border-slate-800 bg-slate-900">
@@ -290,42 +298,39 @@ export function EmployeeForm({
         </div>
         <div>
           <label className="block text-sm font-medium text-slate-300">Position</label>
-          <select
+          <Select
             name="position"
             defaultValue={emp?.position ?? DEFAULT_POSITION}
-            className="mt-1 w-full rounded-md border border-slate-700 bg-slate-800 text-slate-100 px-3 py-2 text-sm"
-          >
-            {/* keep an existing off-list value (old data) selectable on edit */}
-            {emp?.position && !EMPLOYEE_POSITIONS.some((p) => p.key === emp.position) && (
-              <option value={emp.position}>{emp.position}</option>
-            )}
-            {EMPLOYEE_POSITIONS.map((p) => (
-              <option key={p.key} value={p.key}>
-                {p.label}
-              </option>
-            ))}
-          </select>
+            className="mt-1"
+            options={[
+              // keep an existing off-list value (old data) selectable on edit
+              ...(emp?.position && !EMPLOYEE_POSITIONS.some((p) => p.key === emp.position)
+                ? [{ value: emp.position, label: emp.position }]
+                : []),
+              ...EMPLOYEE_POSITIONS.map((p) => ({ value: p.key, label: p.label })),
+            ]}
+          />
         </div>
         <div>
           <label className="block text-sm font-medium text-slate-300">Branch</label>
-          <select name="branch_id" defaultValue={emp?.branch_id ?? defaultBranchId ?? ''} className="mt-1 w-full rounded-md border border-slate-700 bg-slate-800 text-slate-100 placeholder-slate-500 px-3 py-2 text-sm">
-            <option value="">— none —</option>
-            {branches.map((b) => (
-              <option key={b.id} value={b.id}>
-                {b.name}
-              </option>
-            ))}
-          </select>
+          <Select
+            name="branch_id"
+            defaultValue={emp?.branch_id ?? defaultBranchId ?? ''}
+            className="mt-1"
+            options={[
+              { value: '', label: '— none —' },
+              ...branches.map((b) => ({ value: b.id, label: b.name })),
+            ]}
+          />
         </div>
         <div>
           <label className="block text-sm font-medium text-slate-300">Status</label>
-          <select name="status" defaultValue={emp?.status ?? 'active'} className="mt-1 w-full rounded-md border border-slate-700 bg-slate-800 text-slate-100 placeholder-slate-500 px-3 py-2 text-sm">
-            {EMPLOYEE_STATUSES.map((s) => (
-              <option key={s.key} value={s.key}>
-                {s.label}
-              </option>
-            ))}
-          </select>
+          <Select
+            name="status"
+            defaultValue={emp?.status ?? 'active'}
+            className="mt-1"
+            options={EMPLOYEE_STATUSES.map((s) => ({ value: s.key, label: s.label }))}
+          />
         </div>
       </div>
       {state && !state.ok && <p className="text-sm text-red-600">{state.error}</p>}

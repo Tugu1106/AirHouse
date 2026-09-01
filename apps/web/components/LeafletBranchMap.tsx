@@ -6,6 +6,7 @@ import { MapContainer, TileLayer, Marker, useMap } from 'react-leaflet';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
 import { useData } from './DataProvider';
+import { Select } from './Select';
 import { branchStats } from '@/lib/branchStats';
 import { setBranchPositionAction } from '@/lib/actions';
 
@@ -146,17 +147,12 @@ export function LeafletBranchMap({ editable }: { editable: boolean }) {
   return (
     <div className="relative h-full w-full">
       <div className="absolute right-3 top-3 z-[1000]">
-        <select
+        <Select
           value={style}
-          onChange={(e) => chooseStyle(e.target.value as StyleKey)}
-          className="rounded-md border border-slate-700 bg-slate-900/90 px-2 py-1 text-xs text-slate-200 shadow backdrop-blur focus:outline-none"
-        >
-          {Object.entries(TILE_STYLES).map(([k, v]) => (
-            <option key={k} value={k}>
-              {v.label}
-            </option>
-          ))}
-        </select>
+          onChange={(v) => chooseStyle(v as StyleKey)}
+          className="w-36"
+          options={Object.entries(TILE_STYLES).map(([k, v]) => ({ value: k, label: v.label }))}
+        />
       </div>
 
       <MapContainer

@@ -14,6 +14,7 @@ import {
   type ActionResult,
 } from '@/lib/actions';
 import { SubmitButton } from './SubmitButton';
+import { Select } from './Select';
 
 type Modal = { mode: 'add' } | null;
 
@@ -104,44 +105,49 @@ export function ItemsView({ scopeBranchId }: { scopeBranchId?: string }) {
           />
         </Field>
         <Field label="Type">
-          <select value={type} onChange={(e) => setType(e.target.value)} className="rounded-md border border-slate-700 bg-slate-800 text-slate-100 placeholder-slate-500 px-2 py-1.5 text-sm">
-            <option value="">All types</option>
-            {listItemTypes().map((t) => (
-              <option key={t.key} value={t.key}>
-                {t.label}
-              </option>
-            ))}
-          </select>
+          <Select
+            value={type}
+            onChange={setType}
+            className="w-40"
+            options={[
+              { value: '', label: 'All types' },
+              ...listItemTypes().map((t) => ({ value: t.key, label: t.label })),
+            ]}
+          />
         </Field>
         <Field label="Status">
-          <select value={status} onChange={(e) => setStatus(e.target.value)} className="rounded-md border border-slate-700 bg-slate-800 text-slate-100 placeholder-slate-500 px-2 py-1.5 text-sm">
-            <option value="">All</option>
-            {ITEM_STATUSES.map((s) => (
-              <option key={s} value={s}>
-                {s}
-              </option>
-            ))}
-          </select>
+          <Select
+            value={status}
+            onChange={setStatus}
+            className="w-32"
+            options={[{ value: '', label: 'All' }, ...ITEM_STATUSES.map((s) => ({ value: s, label: s }))]}
+          />
         </Field>
         <Field label="Assignee">
-          <select value={assignee} onChange={(e) => setAssignee(e.target.value)} className="rounded-md border border-slate-700 bg-slate-800 text-slate-100 placeholder-slate-500 px-2 py-1.5 text-sm">
-            <option value="">Anyone</option>
-            <option value="unassigned">Unassigned</option>
-            {employees.map((e) => (
-              <option key={e.id} value={e.id}>
-                {e.name}
-              </option>
-            ))}
-          </select>
+          <Select
+            value={assignee}
+            onChange={setAssignee}
+            className="w-44"
+            options={[
+              { value: '', label: 'Anyone' },
+              { value: 'unassigned', label: 'Unassigned' },
+              ...employees.map((e) => ({ value: e.id, label: e.name })),
+            ]}
+          />
         </Field>
         <Field label="Sort">
-          <select value={sort} onChange={(e) => setSort(e.target.value)} className="rounded-md border border-slate-700 bg-slate-800 text-slate-100 placeholder-slate-500 px-2 py-1.5 text-sm">
-            <option value="created_at:desc">Newest</option>
-            <option value="created_at:asc">Oldest</option>
-            <option value="type:asc">Type A–Z</option>
-            <option value="status:asc">Status</option>
-            <option value="updated_at:desc">Recently updated</option>
-          </select>
+          <Select
+            value={sort}
+            onChange={setSort}
+            className="w-44"
+            options={[
+              { value: 'created_at:desc', label: 'Newest' },
+              { value: 'created_at:asc', label: 'Oldest' },
+              { value: 'type:asc', label: 'Type A–Z' },
+              { value: 'status:asc', label: 'Status' },
+              { value: 'updated_at:desc', label: 'Recently updated' },
+            ]}
+          />
         </Field>
         <label className="flex items-center gap-1.5 text-sm text-slate-400">
           <input type="checkbox" checked={showDeleted} onChange={(e) => setShowDeleted(e.target.checked)} />
@@ -341,14 +347,13 @@ function PropertyFields({ def, values }: { def: ItemTypeDef; values?: Record<str
               {f.required && <span className="text-red-500"> *</span>}
             </label>
             {f.type === 'select' ? (
-              <select name={name} defaultValue={val} className="mt-1 w-full rounded-md border border-slate-700 bg-slate-800 text-slate-100 placeholder-slate-500 px-3 py-2 text-sm">
-                <option value="">—</option>
-                {f.options?.map((o) => (
-                  <option key={o} value={o}>
-                    {o}
-                  </option>
-                ))}
-              </select>
+              <Select
+                name={name}
+                defaultValue={val}
+                placeholder="—"
+                className="mt-1"
+                options={[{ value: '', label: '—' }, ...(f.options ?? []).map((o) => ({ value: o, label: o }))]}
+              />
             ) : f.type === 'textarea' ? (
               <textarea name={name} defaultValue={val} placeholder={f.placeholder} className="mt-1 w-full rounded-md border border-slate-700 bg-slate-800 text-slate-100 placeholder-slate-500 px-3 py-2 text-sm" />
             ) : (
@@ -397,45 +402,47 @@ function AddItemForm({
       <div className="grid grid-cols-2 gap-3">
         <div>
           <label className="block text-sm font-medium text-slate-300">Type *</label>
-          <select name="type" value={type} onChange={(e) => setType(e.target.value)} className="mt-1 w-full rounded-md border border-slate-700 bg-slate-800 text-slate-100 placeholder-slate-500 px-3 py-2 text-sm">
-            {listItemTypes().map((t) => (
-              <option key={t.key} value={t.key}>
-                {t.label}
-              </option>
-            ))}
-          </select>
+          <Select
+            name="type"
+            value={type}
+            onChange={setType}
+            className="mt-1"
+            options={listItemTypes().map((t) => ({ value: t.key, label: t.label }))}
+          />
         </div>
         <div>
           <label className="block text-sm font-medium text-slate-300">Status</label>
-          <select name="status" defaultValue="active" className="mt-1 w-full rounded-md border border-slate-700 bg-slate-800 text-slate-100 placeholder-slate-500 px-3 py-2 text-sm">
-            {ITEM_STATUSES.map((s) => (
-              <option key={s} value={s}>
-                {s}
-              </option>
-            ))}
-          </select>
+          <Select
+            name="status"
+            defaultValue="active"
+            className="mt-1"
+            options={ITEM_STATUSES.map((s) => ({ value: s, label: s }))}
+          />
         </div>
         <div>
           <label className="block text-sm font-medium text-slate-300">Branch *</label>
-          <select name="branch_id" defaultValue={scopeBranchId ?? ''} required className="mt-1 w-full rounded-md border border-slate-700 bg-slate-800 text-slate-100 placeholder-slate-500 px-3 py-2 text-sm">
-            <option value="">Select…</option>
-            {branches.map((b) => (
-              <option key={b.id} value={b.id}>
-                {b.name}
-              </option>
-            ))}
-          </select>
+          <Select
+            name="branch_id"
+            defaultValue={scopeBranchId ?? ''}
+            placeholder="Select…"
+            className="mt-1"
+            options={[
+              { value: '', label: 'Select…' },
+              ...branches.map((b) => ({ value: b.id, label: b.name })),
+            ]}
+          />
         </div>
         <div>
           <label className="block text-sm font-medium text-slate-300">Assigned to</label>
-          <select name="assigned_to" defaultValue="" className="mt-1 w-full rounded-md border border-slate-700 bg-slate-800 text-slate-100 placeholder-slate-500 px-3 py-2 text-sm">
-            <option value="">Unassigned</option>
-            {employees.map((e) => (
-              <option key={e.id} value={e.id}>
-                {e.name}
-              </option>
-            ))}
-          </select>
+          <Select
+            name="assigned_to"
+            defaultValue=""
+            className="mt-1"
+            options={[
+              { value: '', label: 'Unassigned' },
+              ...employees.map((e) => ({ value: e.id, label: e.name })),
+            ]}
+          />
         </div>
       </div>
       <div className="space-y-3 border-t border-slate-800 pt-3">{def && <PropertyFields def={def} />}</div>
@@ -458,13 +465,12 @@ export function EditItemForm({ item, onDone }: { item: ItemWithRelations; onDone
       <input type="hidden" name="type" value={item.type} />
       <div>
         <label className="block text-sm font-medium text-slate-300">Status</label>
-        <select name="status" defaultValue={item.status} className="mt-1 w-full rounded-md border border-slate-700 bg-slate-800 text-slate-100 placeholder-slate-500 px-3 py-2 text-sm">
-          {ITEM_STATUSES.map((s) => (
-            <option key={s} value={s}>
-              {s}
-            </option>
-          ))}
-        </select>
+        <Select
+          name="status"
+          defaultValue={item.status}
+          className="mt-1"
+          options={ITEM_STATUSES.map((s) => ({ value: s, label: s }))}
+        />
       </div>
       <div className="space-y-3 border-t border-slate-800 pt-3">
         {def && <PropertyFields def={def} values={item.properties} />}
@@ -500,39 +506,34 @@ export function TransferForm({
       <input type="hidden" name="id" value={item.id} />
       <div>
         <label className="block text-sm font-medium text-slate-300">Assign to</label>
-        <select
+        <Select
           name="to_employee"
           value={toEmployeeId}
-          onChange={(e) => setToEmployeeId(e.target.value)}
+          onChange={setToEmployeeId}
           disabled={!toBranchId}
-          className="mt-1 w-full rounded-md border border-slate-700 bg-slate-800 px-3 py-2 text-sm text-slate-100 placeholder-slate-500 disabled:cursor-not-allowed disabled:opacity-50"
-        >
-          <option value="">{toBranchId ? 'Unassigned' : 'Select a branch first'}</option>
-          {branchEmployees.map((e) => (
-            <option key={e.id} value={e.id}>
-              {e.name}
-            </option>
-          ))}
-        </select>
+          className="mt-1"
+          options={[
+            { value: '', label: toBranchId ? 'Unassigned' : 'Select a branch first' },
+            ...branchEmployees.map((e) => ({ value: e.id, label: e.name })),
+          ]}
+        />
       </div>
       <div>
         <label className="block text-sm font-medium text-slate-300">Branch</label>
-        <select
+        <Select
           name="to_branch"
           value={toBranchId}
-          onChange={(e) => {
-            setToBranchId(e.target.value);
+          onChange={(v) => {
+            setToBranchId(v);
             setToEmployeeId('');
           }}
-          className="mt-1 w-full rounded-md border border-slate-700 bg-slate-800 px-3 py-2 text-sm text-slate-100 placeholder-slate-500"
-        >
-          <option value="">Select a branch</option>
-          {branches.map((b) => (
-            <option key={b.id} value={b.id}>
-              {b.name}
-            </option>
-          ))}
-        </select>
+          placeholder="Select a branch"
+          className="mt-1"
+          options={[
+            { value: '', label: 'Select a branch' },
+            ...branches.map((b) => ({ value: b.id, label: b.name })),
+          ]}
+        />
         <p className="mt-1 text-xs text-slate-400">Choose a branch to see its employees and move the item there.</p>
       </div>
       {state && !state.ok && <p className="text-sm text-red-600">{state.error}</p>}
