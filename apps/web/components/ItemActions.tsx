@@ -48,7 +48,7 @@ export function ItemActions({
 
   const props = item.properties as Record<string, unknown>;
   const str = (v: unknown) => (v == null || v === '' ? null : String(v));
-  const name = str(props.system_name) ?? str(props.model) ?? str(props.serial) ?? '';
+  const name = str(props.model) ?? str(props.system_name) ?? str(props.serial) ?? '';
   const tag = `AIR-${item.id.slice(0, 8).toUpperCase()}`;
   const typeLabel = getItemType(item.type)?.label ?? item.type;
 

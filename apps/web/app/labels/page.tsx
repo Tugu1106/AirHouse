@@ -36,7 +36,7 @@ export default async function LabelsPage({
       return {
         id: it.id,
         type: def?.label ?? it.type,
-        name: str(props.system_name) ?? str(props.model) ?? str(props.serial) ?? '',
+        name: str(props.model) ?? str(props.system_name) ?? str(props.serial) ?? '',
         tag: `AIR-${it.id.slice(0, 8).toUpperCase()}`,
         qr: await QRCode.toString(scanUrl(it.id), { type: 'svg', margin: 0, width: 160 }),
       };

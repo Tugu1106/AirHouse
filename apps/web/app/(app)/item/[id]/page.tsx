@@ -169,7 +169,14 @@ export default async function ItemHistoryPage({ params }: { params: Promise<{ id
                           <div className="text-xs text-slate-500">First owner</div>
                         </>
                       ) : (
-                        <div className="text-sm font-medium text-slate-100">{describe(kind)}</div>
+                        <div className="text-sm font-medium text-slate-100">
+                          {describe(kind)}
+                          {entry.actor_email && (
+                            <span className="ml-2 text-xs font-normal text-slate-500">
+                              by {entry.actor_email}
+                            </span>
+                          )}
+                        </div>
                       )}
 
                       {kind === 'transfer' && (entry.from_employee_id || entry.to_employee_id) && (
@@ -188,11 +195,7 @@ export default async function ItemHistoryPage({ params }: { params: Promise<{ id
                           Branch: {branchName(entry.from_branch_id)} → {branchName(entry.to_branch_id)}
                         </div>
                       )}
-                      {kind === 'update' && entry.diff && (
-                        <pre className="mt-1 overflow-x-auto rounded bg-slate-800/50 p-2 text-xs text-slate-400">
-                          {JSON.stringify(entry.diff, null, 2)}
-                        </pre>
-                      )}
+                      {kind === 'update' && <UpdateChanges diff={entry.diff} def={def} />}
                       <div className="mt-0.5 text-xs text-slate-500">{fmt(entry.created_at)}</div>
                     </div>
                   </li>
@@ -230,4 +233,51 @@ function describe(action: string): string {
     default:
       return action;
   }
+}
+
+function humanizeKey(key: string): string {
+  const s = key.replace(/_/g, ' ');
+  return s.charAt(0).toUpperCase() + s.slice(1);
+}
+
+// Turn a shallow update diff ({ status?: {from,to}, properties?: {from,to} })
+// into a list of readable field changes.
+function changeList(
+  diff: unknown,
+  def: ReturnType<typeof getItemType>,
+): { label: string; from: string; to: string }[] {
+  const d = diff as Record<string, { from?: unknown; to?: unknown }> | null;
+  if (!d || typeof d !== 'object') return [];
+  const val = (v: unknown) => (v == null || v === '' ? '—' : String(v));
+  const labelFor = (key: string) => def?.fields.find((f) => f.key === key)?.label ?? humanizeKey(key);
+  const out: { label: string; from: string; to: string }[] = [];
+
+  if (d.status) out.push({ label: 'Status', from: val(d.status.from), to: val(d.status.to) });
+
+  if (d.properties) {
+    const from = (d.properties.from ?? {}) as Record<string, unknown>;
+    const to = (d.properties.to ?? {}) as Record<string, unknown>;
+    for (const k of new Set([...Object.keys(from), ...Object.keys(to)])) {
+      if (val(from[k]) === val(to[k])) continue;
+      out.push({ label: labelFor(k), from: val(from[k]), to: val(to[k]) });
+    }
+  }
+  return out;
+}
+
+function UpdateChanges({ diff, def }: { diff: unknown; def: ReturnType<typeof getItemType> }) {
+  const changes = changeList(diff, def);
+  if (changes.length === 0)
+    return <p className="mt-1 text-sm text-slate-500">No visible changes.</p>;
+  return (
+    <ul className="mt-1 space-y-0.5">
+      {changes.map((c, i) => (
+        <li key={i} className="text-sm text-slate-400">
+          <span className="font-medium text-slate-300">{c.label}</span> changed from{' '}
+          <span className="text-slate-300">“{c.from}”</span> to{' '}
+          <span className="text-slate-300">“{c.to}”</span>
+        </li>
+      ))}
+    </ul>
+  );
 }

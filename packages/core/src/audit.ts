@@ -42,15 +42,22 @@ export async function writeAudit(entry: AuditEntryInput): Promise<void> {
     .execute();
 }
 
-/** Full history for one item, newest first. */
-export async function listAuditForItem(itemId: UUID): Promise<AuditLog[]> {
+export interface ItemAuditEntry extends AuditLog {
+  /** Email of the user who performed the action (resolved from actor). */
+  actor_email: string | null;
+}
+
+/** Full history for one item, newest first, with the actor's email resolved. */
+export async function listAuditForItem(itemId: UUID): Promise<ItemAuditEntry[]> {
   const db = getDb();
   return (await db
-    .selectFrom('audit_log')
-    .selectAll()
-    .where('item_id', '=', itemId)
-    .orderBy('created_at', 'desc')
-    .execute()) as AuditLog[];
+    .selectFrom('audit_log as a')
+    .leftJoin('users as u', 'u.id', 'a.actor')
+    .selectAll('a')
+    .select('u.email as actor_email')
+    .where('a.item_id', '=', itemId)
+    .orderBy('a.created_at', 'desc')
+    .execute()) as unknown as ItemAuditEntry[];
 }
 
 export interface ActivityEntry extends AuditLog {
