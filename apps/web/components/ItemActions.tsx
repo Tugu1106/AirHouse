@@ -156,7 +156,7 @@ export function ItemActions({
               onClick={() => window.print()}
               className="inline-flex items-center gap-2 rounded-lg bg-brand px-5 py-2 text-sm font-medium text-white shadow-[0_0_20px_-6px_rgba(14,165,233,0.7)] transition hover:bg-brand-light"
             >
-              <IconPrint /> Print label
+              <IconPrint /> Print QR
             </button>
           </div>
           <style>{`

@@ -91,7 +91,7 @@ export default function BranchPage() {
         </div>
         <div className="flex items-center gap-2">
           <Link href={`/labels?branch=${id}`} target="_blank" className="btn-ghost">
-            🖨 Print labels
+            🖨 Print QRs
           </Link>
           <button onClick={() => setSettingsOpen(true)} className="btn-ghost">
             Settings

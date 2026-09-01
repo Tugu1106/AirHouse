@@ -32,9 +32,10 @@ export function AppShell({ isMaster, children }: { isMaster: boolean; children: 
         <div className="mx-auto flex max-w-7xl items-center px-6 py-3">
           {/* Left: favicon alone, far left */}
           <div className="flex min-w-0 flex-1 justify-start">
-            <Link href="/map" aria-label="AIRHOUSE" className="shrink-0">
+            <Link href="/map" aria-label="AIRHOUSE" className="flex shrink-0 items-center gap-2">
               {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img src="/favicon-32.png" alt="AIRHOUSE" className="h-9 w-9" />
+              <img src="/favicon-32.png" alt="" className="h-9 w-9" />
+              <span className="text-lg font-bold tracking-wide text-white">AIRHOUSE</span>
             </Link>
           </div>
 
