@@ -37,10 +37,14 @@ export function ScanDetails({
           onClick={() => setOpen(false)}
         >
           <div
-            className="animate-modal flex max-h-[85vh] w-full max-w-md flex-col overflow-hidden rounded-t-2xl border border-slate-700/60 bg-slate-900 shadow-2xl sm:rounded-2xl"
+            className="animate-modal flex max-h-[90dvh] w-full max-w-md flex-col overflow-hidden rounded-t-2xl border border-slate-700/60 bg-slate-900 shadow-2xl sm:max-h-[85vh] sm:rounded-2xl"
             onClick={(e) => e.stopPropagation()}
           >
-            <div className="flex items-center justify-between border-b border-slate-800 px-5 py-4">
+            {/* grabber (mobile bottom-sheet) */}
+            <div className="flex justify-center pt-2 sm:hidden">
+              <span className="h-1 w-10 rounded-full bg-slate-700" />
+            </div>
+            <div className="flex shrink-0 items-center justify-between border-b border-slate-800 px-5 py-4">
               <div className="min-w-0">
                 <h2 className="truncate text-base font-semibold text-white">{title}</h2>
                 {subtitle && <p className="truncate text-xs text-slate-400">{subtitle}</p>}
@@ -53,7 +57,10 @@ export function ScanDetails({
                 ✕
               </button>
             </div>
-            <dl className="divide-y divide-slate-800 overflow-y-auto px-5">
+            <dl
+              className="divide-y divide-slate-800 overflow-y-auto overscroll-contain px-5"
+              style={{ paddingBottom: 'calc(env(safe-area-inset-bottom) + 1.5rem)' }}
+            >
               {specs.map((s) => (
                 <div key={s.label} className="flex items-baseline justify-between gap-4 py-3">
                   <dt className="text-xs font-medium uppercase tracking-wide text-slate-500">
