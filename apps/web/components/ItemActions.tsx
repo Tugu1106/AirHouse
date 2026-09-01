@@ -31,6 +31,14 @@ export function ItemActions({
   const [modal, setModal] = useState<'edit' | 'transfer' | 'qr' | null>(null);
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [busy, setBusy] = useState(false);
+  const [qrSize, setQrSize] = useState<'sm' | 'md' | 'lg'>('md');
+
+  // Physical printed label width (mm). The QR fills it minus a small quiet zone.
+  const SIZES: Record<'sm' | 'md' | 'lg', { mm: number; label: string }> = {
+    sm: { mm: 30, label: 'Small · 3cm' },
+    md: { mm: 40, label: 'Medium · 4cm' },
+    lg: { mm: 55, label: 'Large · 5.5cm' },
+  };
 
   const done = () => {
     setModal(null);
@@ -99,14 +107,38 @@ export function ItemActions({
           <p className="mb-4 text-center text-sm text-slate-400">
             Scan with any phone camera to see this item’s live owner.
           </p>
-          <div className="qr-print-area mx-auto w-64 rounded-2xl bg-white p-5 text-center text-slate-900 shadow-lg ring-1 ring-slate-200">
+          <div
+            className="qr-print-area mx-auto w-64 rounded-2xl bg-white p-5 text-center text-slate-900 shadow-lg ring-1 ring-slate-200"
+            style={{ ['--qr-w' as string]: `${SIZES[qrSize].mm}mm` } as React.CSSProperties}
+          >
             <div className="qr-img" dangerouslySetInnerHTML={{ __html: qrSvg }} />
             <div className="mt-4 border-t border-slate-200 pt-3">
-              <div className="text-sm font-bold">{typeLabel}</div>
-              {name && <div className="text-xs text-slate-500">{name}</div>}
-              <div className="mt-1 font-mono text-xs tracking-widest text-slate-700">{tag}</div>
+              <div className="lbl-type text-sm font-bold">{typeLabel}</div>
+              {name && <div className="lbl-name text-xs text-slate-500">{name}</div>}
+              <div className="lbl-tag mt-1 font-mono text-xs tracking-widest text-slate-700">{tag}</div>
             </div>
           </div>
+
+          {/* Print-size picker */}
+          <div className="mt-4 flex flex-wrap items-center justify-center gap-2 text-sm">
+            <span className="text-slate-500">Print size</span>
+            <div className="flex overflow-hidden rounded-md border border-slate-700">
+              {(['sm', 'md', 'lg'] as const).map((s) => (
+                <button
+                  key={s}
+                  onClick={() => setQrSize(s)}
+                  className={
+                    qrSize === s
+                      ? 'bg-slate-700 px-3 py-1 font-medium text-white'
+                      : 'px-3 py-1 text-slate-400 hover:bg-slate-800'
+                  }
+                >
+                  {SIZES[s].label}
+                </button>
+              ))}
+            </div>
+          </div>
+
           <p className="mt-3 break-all text-center text-[11px] text-slate-600">{scanLink}</p>
           <div className="mt-5 flex justify-center">
             <button
@@ -119,12 +151,19 @@ export function ItemActions({
           <style>{`
             .qr-img svg { width: 100%; height: auto; display: block; }
             @media print {
+              @page { margin: 8mm; }
               body * { visibility: hidden !important; }
               .qr-print-area, .qr-print-area * { visibility: visible !important; }
               .qr-print-area {
-                position: fixed; left: 50%; top: 40px; transform: translateX(-50%);
-                width: 320px; box-shadow: none;
+                position: fixed; left: 0; top: 0; margin: 0;
+                width: var(--qr-w, 40mm);
+                padding: 3mm;
+                background: #fff !important;
+                box-shadow: none !important; border: none !important; border-radius: 0 !important;
               }
+              .qr-print-area .lbl-type { font-size: 8pt; margin-top: 2mm; }
+              .qr-print-area .lbl-name { font-size: 6.5pt; }
+              .qr-print-area .lbl-tag  { font-size: 7pt; margin-top: 0.5mm; }
             }
           `}</style>
         </Dialog>
