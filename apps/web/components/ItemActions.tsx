@@ -4,6 +4,7 @@ import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import type { ItemWithRelations } from '@airlink/core';
 import { getItemType } from '@airlink/core/itemTypes';
+import { useData } from './DataProvider';
 import { EditItemForm, TransferForm, Dialog } from './ItemsView';
 import { ConfirmDialog } from './ConfirmDialog';
 import { softDeleteItemAction, restoreItemAction } from '@/lib/actions';
@@ -28,9 +29,18 @@ export function ItemActions({
   scanLink: string;
 }) {
   const router = useRouter();
+  const { refresh } = useData();
   const [modal, setModal] = useState<'edit' | 'transfer' | 'qr' | null>(null);
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [busy, setBusy] = useState(false);
+
+  // Refresh BOTH data sources: router.refresh() re-renders this server-rendered
+  // item page; refresh() updates the client cache (DataProvider) the Inventory,
+  // branch, and map views read from — so those are current without a reload.
+  const syncAll = () => {
+    router.refresh();
+    void refresh();
+  };
   const [qrSize, setQrSize] = useState<'cm3' | 'quarter' | 'half'>('cm3');
 
   // Print presets: 3cm label sits top-left; ¼ A4 and ½ A4 each center one QR
@@ -43,7 +53,7 @@ export function ItemActions({
 
   const done = () => {
     setModal(null);
-    router.refresh();
+    syncAll();
   };
 
   const props = item.properties as Record<string, unknown>;
@@ -64,7 +74,7 @@ export function ItemActions({
             setBusy(true);
             await restoreItemAction(item.id);
             setBusy(false);
-            router.refresh();
+            syncAll();
           }}
           className="inline-flex items-center gap-1.5 rounded-lg border border-emerald-800/70 px-3 py-1.5 text-sm text-emerald-300 transition hover:border-emerald-700 hover:bg-emerald-950/60 disabled:opacity-50"
         >
@@ -199,7 +209,7 @@ export function ItemActions({
           onConfirm={async () => {
             await softDeleteItemAction(item.id);
             setConfirmDelete(false);
-            router.refresh();
+            syncAll();
           }}
         />
       )}
