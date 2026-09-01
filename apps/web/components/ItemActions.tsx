@@ -31,13 +31,13 @@ export function ItemActions({
   const [modal, setModal] = useState<'edit' | 'transfer' | 'qr' | null>(null);
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [busy, setBusy] = useState(false);
-  const [qrSize, setQrSize] = useState<'cm3' | 'cm10' | 'half'>('cm3');
+  const [qrSize, setQrSize] = useState<'cm3' | 'quarter' | 'half'>('cm3');
 
-  // Print presets: 3cm and 10cm labels sit top-left; ½ A4 is one big QR
-  // centered in the top half of the page. (Physical sizes handled in print CSS.)
-  const SIZE_OPTIONS: { key: 'cm3' | 'cm10' | 'half'; label: string }[] = [
+  // Print presets: 3cm label sits top-left; ¼ A4 and ½ A4 each center one QR
+  // (both axes) inside their slice of the sheet. (Sizes handled in print CSS.)
+  const SIZE_OPTIONS: { key: 'cm3' | 'quarter' | 'half'; label: string }[] = [
     { key: 'cm3', label: '3 cm' },
-    { key: 'cm10', label: '10 cm' },
+    { key: 'quarter', label: '¼ A4' },
     { key: 'half', label: '½ A4' },
   ];
 
@@ -160,26 +160,30 @@ export function ItemActions({
                 background: #fff !important;
                 box-shadow: none !important; border: none !important; border-radius: 0 !important;
               }
-              /* 3cm — top-left */
-              .qr-print-area[data-size="cm3"]  { left: 8mm; top: 8mm; width: 30mm;  padding: 2mm; }
-              /* 10cm — top-left */
-              .qr-print-area[data-size="cm10"] { left: 8mm; top: 8mm; width: 100mm; padding: 4mm; }
-              /* half A4 — one big QR centered in the top half (210 x 148.5 mm) */
+              /* 3cm — small sticker, top-left */
+              .qr-print-area[data-size="cm3"]  { left: 8mm; top: 8mm; width: 30mm; padding: 2mm; }
+              /* ¼ A4 — centered (both axes) in the top-left quarter (105 x 148.5 mm) */
+              .qr-print-area[data-size="quarter"] {
+                left: 0; top: 0; width: 105mm; height: 148.5mm; padding: 0;
+                display: flex; flex-direction: column; align-items: center; justify-content: center;
+              }
+              .qr-print-area[data-size="quarter"] .qr-img { width: 70mm; }
+              /* ½ A4 — centered (both axes) in the top half (210 x 148.5 mm) */
               .qr-print-area[data-size="half"] {
                 left: 0; top: 0; width: 210mm; height: 148.5mm; padding: 0;
                 display: flex; flex-direction: column; align-items: center; justify-content: center;
               }
-              .qr-print-area[data-size="half"] .qr-img { width: 120mm; }
+              .qr-print-area[data-size="half"] .qr-img { width: 100mm; }
 
-              .qr-print-area[data-size="cm3"]  .lbl-type { font-size: 7pt; }
-              .qr-print-area[data-size="cm3"]  .lbl-name { font-size: 6pt; }
-              .qr-print-area[data-size="cm3"]  .lbl-tag  { font-size: 6.5pt; }
-              .qr-print-area[data-size="cm10"] .lbl-type { font-size: 12pt; }
-              .qr-print-area[data-size="cm10"] .lbl-name { font-size: 9pt; }
-              .qr-print-area[data-size="cm10"] .lbl-tag  { font-size: 10pt; }
-              .qr-print-area[data-size="half"] .lbl-type { font-size: 16pt; }
-              .qr-print-area[data-size="half"] .lbl-name { font-size: 11pt; }
-              .qr-print-area[data-size="half"] .lbl-tag  { font-size: 13pt; }
+              .qr-print-area[data-size="cm3"]     .lbl-type { font-size: 7pt; }
+              .qr-print-area[data-size="cm3"]     .lbl-name { font-size: 6pt; }
+              .qr-print-area[data-size="cm3"]     .lbl-tag  { font-size: 6.5pt; }
+              .qr-print-area[data-size="quarter"] .lbl-type { font-size: 11pt; }
+              .qr-print-area[data-size="quarter"] .lbl-name { font-size: 8pt; }
+              .qr-print-area[data-size="quarter"] .lbl-tag  { font-size: 9pt; }
+              .qr-print-area[data-size="half"]    .lbl-type { font-size: 16pt; }
+              .qr-print-area[data-size="half"]    .lbl-name { font-size: 11pt; }
+              .qr-print-area[data-size="half"]    .lbl-tag  { font-size: 13pt; }
             }
           `}</style>
         </Dialog>
