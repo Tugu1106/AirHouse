@@ -37,13 +37,18 @@ export function ItemsView({ scopeBranchId }: { scopeBranchId?: string }) {
   const [sort, setSort] = useState('created_at:desc');
   const [detailed, setDetailed] = useState(false);
 
-  // Remember the compact/detailed choice across pages and reloads.
+  // Remember the compact/detailed choice and the sort across pages and reloads.
   useEffect(() => {
     setDetailed(localStorage.getItem('inventory_detailed') === '1');
+    const s = localStorage.getItem('inventory_sort');
+    if (s) setSort(s);
   }, []);
   useEffect(() => {
     localStorage.setItem('inventory_detailed', detailed ? '1' : '0');
   }, [detailed]);
+  useEffect(() => {
+    localStorage.setItem('inventory_sort', sort);
+  }, [sort]);
 
   const visible = useMemo(() => {
     let rows = scopeBranchId ? items.filter((r) => r.branch_id === scopeBranchId) : items;
