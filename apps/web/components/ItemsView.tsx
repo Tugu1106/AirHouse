@@ -281,7 +281,7 @@ export function ItemsView({ scopeBranchId }: { scopeBranchId?: string }) {
       )}
 
       {/* Table */}
-      <div className="overflow-x-auto rounded-lg border border-slate-800 bg-slate-900">
+      <div className="no-scrollbar overflow-x-auto rounded-lg border border-slate-800 bg-slate-900">
         <table
           className={`min-w-full divide-y divide-slate-800 ${
             detailed ? 'text-xs [&_td]:px-2.5 [&_td]:py-2.5 [&_th]:px-2.5' : 'text-sm'

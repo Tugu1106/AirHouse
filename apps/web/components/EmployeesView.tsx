@@ -279,7 +279,7 @@ export function EmployeesView() {
         </div>
       )}
 
-      <div className="overflow-x-auto rounded-lg border border-slate-800 bg-slate-900">
+      <div className="no-scrollbar overflow-x-auto rounded-lg border border-slate-800 bg-slate-900">
         <table className="min-w-full divide-y divide-slate-800 text-sm">
           <thead className="bg-slate-800/50 text-left text-xs uppercase tracking-wide text-slate-400">
             <tr>
