@@ -1,6 +1,7 @@
 'use client';
 
 import { useState } from 'react';
+import Link from 'next/link';
 import { useData } from '@/components/DataProvider';
 import { ItemsView } from '@/components/ItemsView';
 import { AdminBar } from '@/components/AdminBar';
@@ -32,6 +33,13 @@ export default function InventoryPage() {
           </p>
         </div>
         <div className="flex items-center gap-2">
+          <Link
+            href={branchId ? `/labels?branch=${branchId}` : '/labels'}
+            target="_blank"
+            className="btn-ghost"
+          >
+            🖨 Print QRs
+          </Link>
           <ExportButton />
           <AdminBar />
         </div>

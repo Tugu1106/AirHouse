@@ -1,5 +1,7 @@
-import { getItemWithRelations, getItemType } from '@airlink/core';
+import { getItemWithRelations, getItemType, listBranches, listEmployees } from '@airlink/core';
+import { getCurrentUser } from '@/lib/session';
 import { ScanDetails } from '@/components/ScanDetails';
+import { ScanAdminActions } from '@/components/ScanAdminActions';
 
 export const dynamic = 'force-dynamic';
 
@@ -77,6 +79,17 @@ export default async function ScanPage({ params }: { params: Promise<{ id: strin
     value: str(props[f.key]) ?? '—',
   }));
 
+  // Signed-in admins get inline Transfer/Edit right on the scan page.
+  const viewer = await getCurrentUser();
+  const isAdmin = viewer?.role === 'admin';
+  let adminBranches: { id: string; name: string }[] = [];
+  let adminEmployees: { id: string; name: string; branch_id: string | null }[] = [];
+  if (isAdmin) {
+    const [bs, es] = await Promise.all([listBranches(), listEmployees()]);
+    adminBranches = bs;
+    adminEmployees = es;
+  }
+
   return (
     <Shell>
       <div className="overflow-hidden rounded-xl border border-slate-800 bg-slate-900">
@@ -121,8 +134,12 @@ export default async function ScanPage({ params }: { params: Promise<{ id: strin
         </div>
       </div>
 
+      {isAdmin && !item.deleted_at && (
+        <ScanAdminActions item={item} branches={adminBranches} employees={adminEmployees} />
+      )}
+
       <p className="mt-4 text-center text-xs text-slate-600">
-        Live from AIRHOUSE asset tracker · read-only
+        {isAdmin ? 'You are signed in as admin' : 'Live from AIRHOUSE asset tracker · read-only'}
       </p>
     </Shell>
   );
