@@ -58,6 +58,13 @@ export const IconPrint = (p: P) => (
   </Svg>
 );
 
+export const IconSearch = (p: P) => (
+  <Svg {...p}>
+    <circle cx="11" cy="11" r="7" />
+    <path d="M21 21l-4.3-4.3" />
+  </Svg>
+);
+
 export const IconQr = (p: P) => (
   <Svg {...p}>
     <rect width="5" height="5" x="3" y="3" rx="1" />

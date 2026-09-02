@@ -4,6 +4,8 @@ import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { useData } from './DataProvider';
 import { AccountMenu } from './AccountMenu';
+import { CommandPalette } from './CommandPalette';
+import { IconSearch } from './icons';
 
 const NAV = [
   { href: '/map', label: 'Map' },
@@ -56,12 +58,24 @@ export function AppShell({ isMaster, children }: { isMaster: boolean; children: 
             ))}
           </nav>
 
-          {/* Right: single account menu */}
-          <div className="flex min-w-0 flex-1 items-center justify-end">
+          {/* Right: search + account menu */}
+          <div className="flex min-w-0 flex-1 items-center justify-end gap-2">
+            <button
+              onClick={() => window.dispatchEvent(new Event('airhouse:search'))}
+              title="Search (Ctrl+K)"
+              className="flex items-center gap-2 rounded-md border border-slate-700 px-2 py-1.5 text-sm text-slate-400 transition hover:bg-slate-800 sm:px-3"
+            >
+              <IconSearch className="h-4 w-4" />
+              <span className="hidden sm:inline">Search</span>
+              <kbd className="hidden rounded border border-slate-700 px-1 text-[10px] text-slate-500 sm:inline">
+                ⌘K
+              </kbd>
+            </button>
             <AccountMenu userEmail={userEmail} isMaster={isMaster} />
           </div>
         </div>
       </header>
+      <CommandPalette />
       {children}
     </div>
   );
