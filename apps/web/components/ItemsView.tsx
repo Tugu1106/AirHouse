@@ -14,6 +14,7 @@ import {
   useSensor,
   useSensors,
   type DragEndEvent,
+  type Modifier,
 } from '@dnd-kit/core';
 import {
   SortableContext,
@@ -35,6 +36,9 @@ import { Select } from './Select';
 type Modal = { mode: 'add' } | null;
 
 const typeLabel = (key: string) => getItemType(key)?.label ?? key;
+
+// Keep a dragged row moving only up/down (no sideways drift → no horizontal scroll).
+const restrictVerticalAxis: Modifier = ({ transform }) => ({ ...transform, x: 0 });
 
 function propertyValue(item: ItemWithRelations, key: string): string {
   const value = item.properties?.[key];
@@ -82,16 +86,19 @@ export function ItemsView({ scopeBranchId }: { scopeBranchId?: string }) {
       );
     }
     const [by, dir] = sort.split(':');
-    const key = (r: ItemWithRelations): string | number =>
-      by === 'sort_order'
-        ? (r.sort_order ?? Number.MAX_SAFE_INTEGER)
-        : by === 'type'
-          ? r.type
-          : by === 'status'
-            ? r.status
-            : by === 'updated_at'
-              ? r.updated_at
-              : r.created_at;
+    if (by === 'sort_order') {
+      // Custom order: group by branch, then each branch's manual order (nulls last).
+      const ord = (r: ItemWithRelations) => r.sort_order ?? Number.MAX_SAFE_INTEGER;
+      rows = [...rows].sort((a, b) => {
+        const ba = a.branch?.name ?? '~';
+        const bb = b.branch?.name ?? '~';
+        if (ba !== bb) return ba.localeCompare(bb);
+        return ord(a) - ord(b);
+      });
+      return rows;
+    }
+    const key = (r: ItemWithRelations): string =>
+      by === 'type' ? r.type : by === 'status' ? r.status : by === 'updated_at' ? r.updated_at : r.created_at;
     rows = [...rows].sort((a, b) => {
       const av = key(a);
       const bv = key(b);
@@ -123,8 +130,7 @@ export function ItemsView({ scopeBranchId }: { scopeBranchId?: string }) {
   // Only sensible on ONE branch with no filters/search, so a saved order stays
   // coherent. Otherwise "Custom" just displays the saved order without handles.
   const isCustom = sort === 'sort_order:asc';
-  const dndEnabled =
-    isCustom && !!scopeBranchId && !type && !status && !assignee && !search.trim() && !showDeleted;
+  const dndEnabled = isCustom && !type && !status && !assignee && !search.trim() && !showDeleted;
 
   const [dragOrder, setDragOrder] = useState<string[] | null>(null);
   const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 5 } }));
@@ -146,7 +152,16 @@ export function ItemsView({ scopeBranchId }: { scopeBranchId?: string }) {
     if (from < 0 || to < 0) return;
     const next = arrayMove(ids, from, to);
     setDragOrder(next); // optimistic
-    await reorderItemsAction(next);
+
+    // sort_order is per-branch: persist each branch's sub-order from the new arrangement.
+    const rowById = new Map(orderedRows.map((r) => [r.id, r]));
+    const byBranch = new Map<string, string[]>();
+    for (const id of next) {
+      const r = rowById.get(id);
+      if (!r) continue;
+      byBranch.set(r.branch_id, [...(byBranch.get(r.branch_id) ?? []), id]);
+    }
+    for (const arr of byBranch.values()) await reorderItemsAction(arr);
     await refresh();
     setDragOrder(null); // DataProvider now reflects the saved sort_order
   };
@@ -261,8 +276,7 @@ export function ItemsView({ scopeBranchId }: { scopeBranchId?: string }) {
 
       {isCustom && !dndEnabled && (
         <div className="rounded-md border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-xs text-amber-200">
-          Showing your saved custom order. To drag items into a new order, open a single branch and
-          clear the filters/search.
+          Showing your saved custom order. Clear the filters/search to drag items into a new order.
         </div>
       )}
 
@@ -292,7 +306,13 @@ export function ItemsView({ scopeBranchId }: { scopeBranchId?: string }) {
           </thead>
 
           {dndEnabled ? (
-            <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={onDragEnd}>
+            <DndContext
+              sensors={sensors}
+              collisionDetection={closestCenter}
+              onDragEnd={onDragEnd}
+              modifiers={[restrictVerticalAxis]}
+              autoScroll={false}
+            >
               <SortableContext items={orderedRows.map((r) => r.id)} strategy={verticalListSortingStrategy}>
                 <tbody className="divide-y divide-slate-800">
                   {orderedRows.map((item) => (

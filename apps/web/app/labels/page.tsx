@@ -89,9 +89,9 @@ export default async function LabelsPage({
                          border-bottom: 1px solid #1e293b; padding-bottom: 8px; }
         .section-title span { font-size: 12px; font-weight: 500; color: #64748b; }
         .sheet { display: grid; grid-template-columns: repeat(3, 1fr); gap: 14px; }
-        .label { background: #fff; color: #0b1120; border-radius: 8px; padding: 12px;
+        .label { background: #fff; color: #0b1120; border-radius: 8px; padding: 10px;
                  text-align: center; break-inside: avoid; }
-        .label .qr { width: 150px; height: 150px; margin: 0 auto; }
+        .label .qr { width: 100%; aspect-ratio: 1 / 1; margin: 0 auto; }
         .label .qr svg { width: 100%; height: 100%; display: block; }
         .label .type { margin-top: 8px; font-size: 13px; font-weight: 700; }
         .label .name { font-size: 11px; color: #334155; word-break: break-word; }

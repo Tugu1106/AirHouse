@@ -17,6 +17,7 @@ import {
   useSensor,
   useSensors,
   type DragEndEvent,
+  type Modifier,
 } from '@dnd-kit/core';
 import {
   SortableContext,
@@ -35,6 +36,9 @@ import {
   reorderEmployeesAction,
   type ActionResult,
 } from '@/lib/actions';
+
+// Keep a dragged row moving only up/down (no sideways drift → no horizontal scroll).
+const restrictVerticalAxis: Modifier = ({ transform }) => ({ ...transform, x: 0 });
 
 const STATUS_STYLES: Record<EmployeeStatus, string> = {
   active: 'bg-emerald-100 text-emerald-700',
@@ -116,20 +120,25 @@ export function EmployeesView() {
         `${e.name} ${e.position ?? ''} ${e.phone ?? ''}`.toLowerCase().includes(term),
       );
     }
-    return [...rows].sort((a, b) =>
-      sort === 'custom'
-        ? (a.sort_order ?? Number.MAX_SAFE_INTEGER) - (b.sort_order ?? Number.MAX_SAFE_INTEGER)
-        : a.name.localeCompare(b.name),
-    );
-  }, [employees, status, branchId, login, loginStatus, search, sort]);
+    return [...rows].sort((a, b) => {
+      if (sort === 'custom') {
+        // Group by branch, then each branch's manual order (nulls last).
+        const ba = branchName(a.branch_id);
+        const bb = branchName(b.branch_id);
+        if (ba !== bb) return ba.localeCompare(bb);
+        return (a.sort_order ?? Number.MAX_SAFE_INTEGER) - (b.sort_order ?? Number.MAX_SAFE_INTEGER);
+      }
+      return a.name.localeCompare(b.name);
+    });
+  }, [employees, status, branchId, login, loginStatus, search, sort, branches]);
 
   const done = async () => {
     await refresh();
     setModal(null);
   };
 
-  // --- Custom (manual) order via drag-and-drop (per branch, no other filters) --
-  const dndEnabled = sort === 'custom' && !!branchId && !status && !login && !search.trim();
+  // --- Custom (manual) order via drag-and-drop (per branch; no other filters) --
+  const dndEnabled = sort === 'custom' && !status && !login && !search.trim();
   const [dragOrder, setDragOrder] = useState<string[] | null>(null);
   const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 5 } }));
 
@@ -150,7 +159,17 @@ export function EmployeesView() {
     if (from < 0 || to < 0) return;
     const next = arrayMove(ids, from, to);
     setDragOrder(next);
-    await reorderEmployeesAction(next);
+
+    // sort_order is per-branch: persist each branch's sub-order from the arrangement.
+    const rowById = new Map(orderedRows.map((r) => [r.id, r]));
+    const byBranch = new Map<string, string[]>();
+    for (const id of next) {
+      const r = rowById.get(id);
+      if (!r) continue;
+      const key = r.branch_id ?? 'none';
+      byBranch.set(key, [...(byBranch.get(key) ?? []), id]);
+    }
+    for (const arr of byBranch.values()) await reorderEmployeesAction(arr);
     await refresh();
     setDragOrder(null);
   };
@@ -256,8 +275,7 @@ export function EmployeesView() {
 
       {sort === 'custom' && !dndEnabled && (
         <div className="rounded-md border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-xs text-amber-200">
-          Showing your saved custom order. To drag employees into a new order, pick a single branch
-          and clear the other filters/search.
+          Showing your saved custom order. Clear the filters/search to drag employees into a new order.
         </div>
       )}
 
@@ -278,7 +296,13 @@ export function EmployeesView() {
           </thead>
 
           {dndEnabled ? (
-            <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={onDragEnd}>
+            <DndContext
+              sensors={sensors}
+              collisionDetection={closestCenter}
+              onDragEnd={onDragEnd}
+              modifiers={[restrictVerticalAxis]}
+              autoScroll={false}
+            >
               <SortableContext items={orderedRows.map((r) => r.id)} strategy={verticalListSortingStrategy}>
                 <tbody className="divide-y divide-slate-800">
                   {orderedRows.map((e) => (

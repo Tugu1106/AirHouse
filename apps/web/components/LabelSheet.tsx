@@ -51,6 +51,15 @@ export function LabelSheet({
   );
   const [saved, setSaved] = useState(false);
 
+  // Per-A4 density: how many QR columns fit across the page.
+  const SIZES = [
+    { key: 'small', label: 'Small', cols: 5 },
+    { key: 'medium', label: 'Medium', cols: 3 },
+    { key: 'large', label: 'Large', cols: 2 },
+  ] as const;
+  const [size, setSize] = useState<'small' | 'medium' | 'large'>('medium');
+  const cols = SIZES.find((s) => s.key === size)!.cols;
+
   const onDragEnd = (gid: string) => (e: DragEndEvent) => {
     const { active, over } = e;
     if (!over || active.id === over.id) return;
@@ -79,6 +88,22 @@ export function LabelSheet({
             {total} codes{!scoped && groups.length > 1 ? ` · ${groups.length} branches` : ''} · drag
             to arrange
           </div>
+        </div>
+        <div className="flex overflow-hidden rounded-md border border-slate-700 text-sm">
+          {SIZES.map((s) => (
+            <button
+              key={s.key}
+              onClick={() => setSize(s.key)}
+              title={`${s.cols} per row`}
+              className={
+                size === s.key
+                  ? 'bg-slate-700 px-3 py-1.5 font-medium text-white'
+                  : 'px-3 py-1.5 text-slate-400 hover:bg-slate-800'
+              }
+            >
+              {s.label}
+            </button>
+          ))}
         </div>
         <button
           onClick={save}
@@ -113,7 +138,7 @@ export function LabelSheet({
             )}
             <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={onDragEnd(g.id)}>
               <SortableContext items={order[g.id] ?? []} strategy={rectSortingStrategy}>
-                <div className="sheet">
+                <div className="sheet" style={{ gridTemplateColumns: `repeat(${cols}, 1fr)` }}>
                   {(order[g.id] ?? []).map((id) => {
                     const l = byId.get(id);
                     return l ? <SortableCard key={id} label={l} /> : null;
