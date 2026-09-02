@@ -42,6 +42,10 @@ services:
       # Admin login is auto-seeded on startup if it doesn't exist yet.
       ADMIN_EMAIL: ${ADMIN_EMAIL}
       ADMIN_PASSWORD: ${ADMIN_PASSWORD}
+      # AI assistant (optional; blank key = disabled).
+      AI_API_KEY: ${AI_API_KEY:-}
+      AI_API_URL: ${AI_API_URL:-}
+      AI_MODEL: ${AI_MODEL:-}
     ports:
       - '3000:3000'
 

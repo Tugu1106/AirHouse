@@ -13,6 +13,7 @@ const NAV = [
   { href: '/employees', label: 'Employees' },
   { href: '/branches', label: 'Branches' },
   { href: '/activity', label: 'Log' },
+  { href: '/assistant', label: 'Assistant' },
 ];
 
 export function AppShell({ isMaster, children }: { isMaster: boolean; children: React.ReactNode }) {
