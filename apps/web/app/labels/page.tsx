@@ -1,10 +1,9 @@
 import { redirect } from 'next/navigation';
-import Link from 'next/link';
 import QRCode from 'qrcode';
 import { listItems, listBranches, getItemType, type ItemWithRelations } from '@airlink/core';
 import { getCurrentUser } from '@/lib/session';
 import { scanUrl } from '@/lib/config';
-import { PrintButton } from '@/components/PrintButton';
+import { LabelSheet } from '@/components/LabelSheet';
 
 export const dynamic = 'force-dynamic';
 
@@ -112,45 +111,13 @@ export default async function LabelsPage({
         }
       `}</style>
 
-      <div className="toolbar">
-        <div className="mr-auto">
-          <div className="text-base font-semibold text-white">Asset QR codes — {scopeName}</div>
-          <div className="text-xs text-slate-400">
-            {total} codes{!branch && groups.length > 1 ? ` · ${groups.length} branches` : ''}
-          </div>
-        </div>
-        <PrintButton />
-        <Link
-          href={branch ? `/branch/${branch}` : '/inventory'}
-          className="rounded-md border border-slate-700 px-4 py-2 text-sm text-slate-300 hover:bg-slate-800"
-        >
-          ← Back
-        </Link>
-      </div>
-
-      {total === 0 ? (
-        <p className="text-center text-sm text-slate-500">No items to label here.</p>
-      ) : (
-        groups.map((g) => (
-          <section className="section" key={g.id}>
-            {!branch && (
-              <div className="section-title">
-                {g.name} <span>{g.labels.length} items</span>
-              </div>
-            )}
-            <div className="sheet">
-              {g.labels.map((l) => (
-                <div className="label" key={l.id}>
-                  <div className="qr" dangerouslySetInnerHTML={{ __html: l.qr }} />
-                  <div className="type">{l.type}</div>
-                  {l.name && <div className="name">{l.name}</div>}
-                  <div className="tag">{l.tag}</div>
-                </div>
-              ))}
-            </div>
-          </section>
-        ))
-      )}
+      <LabelSheet
+        groups={groups}
+        scoped={!!branch}
+        total={total}
+        scopeName={scopeName}
+        backHref={branch ? `/branch/${branch}` : '/inventory'}
+      />
     </div>
   );
 }
