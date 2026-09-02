@@ -8,6 +8,7 @@ import { EMPLOYEE_STATUSES, EMPLOYEE_POSITIONS } from '@airlink/core/types';
 import { useData } from '@/components/DataProvider';
 import { ItemsView, Dialog } from '@/components/ItemsView';
 import { EmployeeForm } from '@/components/EmployeesView';
+import { BackButton } from '@/components/BackButton';
 import { ConfirmDialog } from '@/components/ConfirmDialog';
 import { SubmitButton } from '@/components/SubmitButton';
 import { branchStats, distanceKm, inMongolia, type Row } from '@/lib/branchStats';
@@ -84,6 +85,7 @@ export default function BranchPage() {
 
   return (
     <main className="mx-auto max-w-7xl space-y-6 px-6 py-6">
+      <BackButton label="Branches" />
       <div className="flex items-start justify-between gap-4">
         <div>
           <div className="text-xs uppercase tracking-widest text-brand-light">Branch</div>
