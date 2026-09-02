@@ -177,6 +177,17 @@ export function ItemsView({ scopeBranchId }: { scopeBranchId?: string }) {
               Detailed
             </button>
           </div>
+          <Link
+            href={`/labels?${new URLSearchParams({
+              ...(scopeBranchId ? { branch: scopeBranchId } : {}),
+              sort,
+            }).toString()}`}
+            target="_blank"
+            className="btn-ghost"
+            title="Print QR labels in the current sort order"
+          >
+            🖨 Print QRs
+          </Link>
           <button
             onClick={() => setModal({ mode: 'add' })}
             className="rounded-md bg-brand px-4 py-2 text-sm font-medium text-white hover:bg-brand-dark"

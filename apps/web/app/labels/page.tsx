@@ -26,15 +26,22 @@ async function toLabel(it: ItemWithRelations) {
 export default async function LabelsPage({
   searchParams,
 }: {
-  searchParams: Promise<{ branch?: string }>;
+  searchParams: Promise<{ branch?: string; sort?: string }>;
 }) {
-  const { branch } = await searchParams;
+  const { branch, sort } = await searchParams;
 
   const user = await getCurrentUser();
   if (!user || user.role !== 'admin') redirect('/login');
 
+  // Mirror the sort picked in the inventory table (e.g. "type:asc").
+  const [sortBy, sortDir] = (sort ?? '').split(':');
+
   const [items, branches] = await Promise.all([
-    listItems(branch ? { branchId: branch } : {}),
+    listItems({
+      ...(branch ? { branchId: branch } : {}),
+      sortBy: (sortBy || undefined) as 'created_at' | 'updated_at' | 'type' | 'status' | undefined,
+      sortDir: (sortDir || undefined) as 'asc' | 'desc' | undefined,
+    }),
     listBranches(),
   ]);
 

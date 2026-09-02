@@ -91,14 +91,9 @@ export default function BranchPage() {
           <div className="text-xs uppercase tracking-widest text-brand-light">Branch</div>
           <h1 className="text-2xl font-semibold text-white">{branch.name}</h1>
         </div>
-        <div className="flex items-center gap-2">
-          <Link href={`/labels?branch=${id}`} target="_blank" className="btn-ghost">
-            🖨 Print QRs
-          </Link>
-          <button onClick={() => setSettingsOpen(true)} className="btn-ghost">
-            Settings
-          </button>
-        </div>
+        <button onClick={() => setSettingsOpen(true)} className="btn-ghost">
+          Settings
+        </button>
       </div>
 
       {/* KPI tiles */}
