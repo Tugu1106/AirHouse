@@ -10,6 +10,21 @@ import {
   type EmployeeStatus,
 } from '@airlink/core/types';
 import type { Employee } from '@airlink/core';
+import {
+  DndContext,
+  closestCenter,
+  PointerSensor,
+  useSensor,
+  useSensors,
+  type DragEndEvent,
+} from '@dnd-kit/core';
+import {
+  SortableContext,
+  verticalListSortingStrategy,
+  useSortable,
+  arrayMove,
+} from '@dnd-kit/sortable';
+import { CSS } from '@dnd-kit/utilities';
 import { useData } from './DataProvider';
 import { Dialog } from './ItemsView';
 import { Select } from './Select';
@@ -17,6 +32,7 @@ import { SubmitButton } from './SubmitButton';
 import {
   createEmployeeAction,
   updateEmployeeAction,
+  reorderEmployeesAction,
   type ActionResult,
 } from '@/lib/actions';
 
@@ -58,7 +74,15 @@ export function EmployeesView() {
   const [status, setStatus] = useState('');
   const [branchId, setBranchId] = useState('');
   const [login, setLogin] = useState('');
+  const [sort, setSort] = useState<'name' | 'custom'>('name');
   const [loginStatus, setLoginStatus] = useState<Record<string, { signedIn: boolean }> | null>(null);
+
+  useEffect(() => {
+    if (localStorage.getItem('employees_sort') === 'custom') setSort('custom');
+  }, []);
+  useEffect(() => {
+    localStorage.setItem('employees_sort', sort);
+  }, [sort]);
 
   // Fetch sign-in status once (admin-only endpoint); badges fill in when it lands.
   useEffect(() => {
@@ -92,13 +116,76 @@ export function EmployeesView() {
         `${e.name} ${e.position ?? ''} ${e.phone ?? ''}`.toLowerCase().includes(term),
       );
     }
-    return [...rows].sort((a, b) => a.name.localeCompare(b.name));
-  }, [employees, status, branchId, login, loginStatus, search]);
+    return [...rows].sort((a, b) =>
+      sort === 'custom'
+        ? (a.sort_order ?? Number.MAX_SAFE_INTEGER) - (b.sort_order ?? Number.MAX_SAFE_INTEGER)
+        : a.name.localeCompare(b.name),
+    );
+  }, [employees, status, branchId, login, loginStatus, search, sort]);
 
   const done = async () => {
     await refresh();
     setModal(null);
   };
+
+  // --- Custom (manual) order via drag-and-drop (per branch, no other filters) --
+  const dndEnabled = sort === 'custom' && !!branchId && !status && !login && !search.trim();
+  const [dragOrder, setDragOrder] = useState<string[] | null>(null);
+  const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 5 } }));
+
+  const orderedRows = useMemo(() => {
+    if (dndEnabled && dragOrder) {
+      const byId = new Map(visible.map((v) => [v.id, v]));
+      return dragOrder.map((id) => byId.get(id)).filter(Boolean) as typeof visible;
+    }
+    return visible;
+  }, [visible, dragOrder, dndEnabled]);
+
+  const onDragEnd = async (e: DragEndEvent) => {
+    const { active, over } = e;
+    if (!over || active.id === over.id) return;
+    const ids = orderedRows.map((r) => r.id);
+    const from = ids.indexOf(String(active.id));
+    const to = ids.indexOf(String(over.id));
+    if (from < 0 || to < 0) return;
+    const next = arrayMove(ids, from, to);
+    setDragOrder(next);
+    await reorderEmployeesAction(next);
+    await refresh();
+    setDragOrder(null);
+  };
+
+  // The <td> cells for one employee row — shared by plain and draggable rows.
+  const renderCells = (e: Employee) => (
+    <>
+      <td className="px-4 py-3 font-medium text-slate-200">{e.name}</td>
+      <td className="px-4 py-3 text-slate-400">{positionLabel(e.position)}</td>
+      <td className="px-4 py-3 text-slate-400">{e.phone ?? '—'}</td>
+      <td className="px-4 py-3 text-slate-400">{branchName(e.branch_id)}</td>
+      <td className="px-4 py-3">
+        <span className={`rounded px-2 py-0.5 text-xs font-medium ${STATUS_STYLES[e.status] ?? 'bg-slate-100 text-slate-400'}`}>
+          {statusLabel(e.status)}
+        </span>
+      </td>
+      <td className="px-4 py-3">
+        {(() => {
+          const b = LOGIN_BADGE[loginStateOf(e, loginStatus)];
+          return <span className={`rounded px-2 py-0.5 text-xs font-medium ${b.cls}`}>{b.label}</span>;
+        })()}
+      </td>
+      <td className="px-4 py-3 text-slate-400">{itemCount(e.id)}</td>
+      <td className="px-4 py-3">
+        <div className="flex items-center justify-end gap-2">
+          <Link href={`/employees/${e.id}`} className="text-slate-400 hover:text-brand">
+            View
+          </Link>
+          <button onClick={() => setModal({ mode: 'edit', emp: e })} className="text-slate-400 hover:text-brand">
+            Edit
+          </button>
+        </div>
+      </td>
+    </>
+  );
 
   return (
     <>
@@ -156,12 +243,29 @@ export function EmployeesView() {
             { value: 'none', label: 'No login' },
           ]}
         />
+        <Select
+          value={sort}
+          onChange={(v) => setSort(v as 'name' | 'custom')}
+          className="w-40"
+          options={[
+            { value: 'name', label: 'Name A–Z' },
+            { value: 'custom', label: 'Custom (drag)' },
+          ]}
+        />
       </div>
+
+      {sort === 'custom' && !dndEnabled && (
+        <div className="rounded-md border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-xs text-amber-200">
+          Showing your saved custom order. To drag employees into a new order, pick a single branch
+          and clear the other filters/search.
+        </div>
+      )}
 
       <div className="overflow-x-auto rounded-lg border border-slate-800 bg-slate-900">
         <table className="min-w-full divide-y divide-slate-800 text-sm">
           <thead className="bg-slate-800/50 text-left text-xs uppercase tracking-wide text-slate-400">
             <tr>
+              {dndEnabled && <th className="w-8 px-2 py-3"></th>}
               <th className="px-4 py-3">Name</th>
               <th className="px-4 py-3">Position</th>
               <th className="px-4 py-3">Phone</th>
@@ -172,49 +276,33 @@ export function EmployeesView() {
               <th className="px-4 py-3 text-right">Actions</th>
             </tr>
           </thead>
-          <tbody className="divide-y divide-slate-800">
-            {visible.length === 0 && (
-              <tr>
-                <td colSpan={8} className="px-4 py-10 text-center text-slate-400">
-                  No employees found.
-                </td>
-              </tr>
-            )}
-            {visible.map((e) => (
-              <tr key={e.id}>
-                <td className="px-4 py-3 font-medium text-slate-200">{e.name}</td>
-                <td className="px-4 py-3 text-slate-400">{positionLabel(e.position)}</td>
-                <td className="px-4 py-3 text-slate-400">{e.phone ?? '—'}</td>
-                <td className="px-4 py-3 text-slate-400">{branchName(e.branch_id)}</td>
-                <td className="px-4 py-3">
-                  <span className={`rounded px-2 py-0.5 text-xs font-medium ${STATUS_STYLES[e.status] ?? 'bg-slate-100 text-slate-400'}`}>
-                    {statusLabel(e.status)}
-                  </span>
-                </td>
-                <td className="px-4 py-3">
-                  {(() => {
-                    const b = LOGIN_BADGE[loginStateOf(e, loginStatus)];
-                    return (
-                      <span className={`rounded px-2 py-0.5 text-xs font-medium ${b.cls}`}>
-                        {b.label}
-                      </span>
-                    );
-                  })()}
-                </td>
-                <td className="px-4 py-3 text-slate-400">{itemCount(e.id)}</td>
-                <td className="px-4 py-3">
-                  <div className="flex items-center justify-end gap-2">
-                    <Link href={`/employees/${e.id}`} className="text-slate-400 hover:text-brand">
-                      View
-                    </Link>
-                    <button onClick={() => setModal({ mode: 'edit', emp: e })} className="text-slate-400 hover:text-brand">
-                      Edit
-                    </button>
-                  </div>
-                </td>
-              </tr>
-            ))}
-          </tbody>
+
+          {dndEnabled ? (
+            <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={onDragEnd}>
+              <SortableContext items={orderedRows.map((r) => r.id)} strategy={verticalListSortingStrategy}>
+                <tbody className="divide-y divide-slate-800">
+                  {orderedRows.map((e) => (
+                    <SortableEmpRow key={e.id} id={e.id}>
+                      {renderCells(e)}
+                    </SortableEmpRow>
+                  ))}
+                </tbody>
+              </SortableContext>
+            </DndContext>
+          ) : (
+            <tbody className="divide-y divide-slate-800">
+              {orderedRows.length === 0 && (
+                <tr>
+                  <td colSpan={8} className="px-4 py-10 text-center text-slate-400">
+                    No employees found.
+                  </td>
+                </tr>
+              )}
+              {orderedRows.map((e) => (
+                <tr key={e.id}>{renderCells(e)}</tr>
+              ))}
+            </tbody>
+          )}
         </table>
       </div>
 
@@ -229,6 +317,40 @@ export function EmployeesView() {
         </Dialog>
       )}
     </>
+  );
+}
+
+// A draggable employee row (Custom sort). The grip cell carries the listeners.
+function SortableEmpRow({ id, children }: { id: string; children: React.ReactNode }) {
+  const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id });
+  const style: React.CSSProperties = {
+    transform: CSS.Transform.toString(transform),
+    transition,
+    opacity: isDragging ? 0.4 : 1,
+    position: isDragging ? 'relative' : undefined,
+    zIndex: isDragging ? 10 : undefined,
+  };
+  return (
+    <tr ref={setNodeRef} style={style} className="bg-slate-900">
+      <td className="w-8 px-2 py-3">
+        <button
+          {...attributes}
+          {...listeners}
+          aria-label="Drag to reorder"
+          className="cursor-grab touch-none text-slate-500 transition hover:text-slate-200 active:cursor-grabbing"
+        >
+          <svg viewBox="0 0 20 20" width="16" height="16" fill="currentColor" aria-hidden>
+            <circle cx="7" cy="4" r="1.4" />
+            <circle cx="13" cy="4" r="1.4" />
+            <circle cx="7" cy="10" r="1.4" />
+            <circle cx="13" cy="10" r="1.4" />
+            <circle cx="7" cy="16" r="1.4" />
+            <circle cx="13" cy="16" r="1.4" />
+          </svg>
+        </button>
+      </td>
+      {children}
+    </tr>
   );
 }
 
