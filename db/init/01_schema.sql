@@ -34,6 +34,7 @@ create table if not exists employees (
   status     text not null default 'active',
   email      text,                 -- work/contact email (login email for workers)
   deleted_at timestamptz,          -- soft-delete; kept so item history resolves names
+  sort_order integer,              -- manual "Custom" order within a branch (nulls last)
   created_at timestamptz not null default now()
 );
 create index if not exists employees_branch_id_idx on employees(branch_id);
@@ -75,6 +76,7 @@ create table if not exists items (
   properties  jsonb not null default '{}'::jsonb,
   status      text not null default 'active',
   deleted_at  timestamptz,
+  sort_order  integer,             -- manual "Custom" order within a branch (nulls last)
   created_by  uuid not null,       -- users.id of the actor (no FK: audit must survive)
   created_at  timestamptz not null default now(),
   updated_at  timestamptz not null default now()

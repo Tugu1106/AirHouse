@@ -19,6 +19,7 @@ function toEmployee(row: Record<string, unknown>): Employee {
     email: (row.email as string | null) ?? null,
     user_id: (row.user_id as string | null) ?? null,
     deleted_at: (row.deleted_at as string | null) ?? null,
+    sort_order: (row.sort_order as number | null) ?? null,
     created_at: row.created_at as string,
   };
 }
@@ -227,4 +228,18 @@ export async function updateEmployee(
     diff: { name: emp.name, changed: Object.keys(update) },
   });
   return emp;
+}
+
+/**
+ * Persist a manual "Custom" order: sort_order = index for each id, in the given
+ * order. Called with the ids of one branch's employees. No audit (cosmetic).
+ */
+export async function reorderEmployees(orderedIds: UUID[]): Promise<void> {
+  if (orderedIds.length === 0) return;
+  const db = getDb();
+  await db.transaction().execute(async (trx) => {
+    for (let i = 0; i < orderedIds.length; i++) {
+      await trx.updateTable('employees').set({ sort_order: i }).where('id', '=', orderedIds[i]!).execute();
+    }
+  });
 }

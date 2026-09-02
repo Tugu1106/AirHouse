@@ -130,3 +130,17 @@ export async function getItem(id: UUID): Promise<Item | null> {
   const row = await db.selectFrom('items').selectAll().where('id', '=', id).executeTakeFirst();
   return (row as Item) ?? null;
 }
+
+/**
+ * Persist a manual "Custom" order: sort_order = index for each id, in the given
+ * order. Called with the ids of one branch's items. No audit (cosmetic).
+ */
+export async function reorderItems(orderedIds: UUID[]): Promise<void> {
+  if (orderedIds.length === 0) return;
+  const db = getDb();
+  await db.transaction().execute(async (trx) => {
+    for (let i = 0; i < orderedIds.length; i++) {
+      await trx.updateTable('items').set({ sort_order: i }).where('id', '=', orderedIds[i]!).execute();
+    }
+  });
+}

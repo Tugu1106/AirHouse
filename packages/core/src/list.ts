@@ -1,6 +1,7 @@
 // Listing / filtering / sorting for items, plus a joined shape convenient for
 // the UI (branch name + employee name inlined).
 
+import { sql } from 'kysely';
 import { getDb } from './db';
 import type { Item, ItemStatus, UUID } from './types';
 
@@ -13,7 +14,7 @@ export interface ItemFilters {
   search?: string;
   /** include soft-deleted items (default false) */
   includeDeleted?: boolean;
-  sortBy?: 'created_at' | 'updated_at' | 'type' | 'status';
+  sortBy?: 'created_at' | 'updated_at' | 'type' | 'status' | 'sort_order';
   sortDir?: 'asc' | 'desc';
   limit?: number;
   offset?: number;
@@ -58,11 +59,16 @@ export async function listItems(filters: ItemFilters = {}): Promise<ItemWithRela
   if (filters.assignedTo === 'unassigned') query = query.where('i.assigned_to', 'is', null);
   else if (filters.assignedTo) query = query.where('i.assigned_to', '=', filters.assignedTo);
 
-  const sortBy = SORT_COLUMNS.includes(filters.sortBy as (typeof SORT_COLUMNS)[number])
-    ? (filters.sortBy as (typeof SORT_COLUMNS)[number])
-    : 'created_at';
-  const dir = (filters.sortDir ?? 'desc') === 'asc' ? 'asc' : 'desc';
-  query = query.orderBy(`i.${sortBy}`, dir);
+  if (filters.sortBy === 'sort_order') {
+    // Manual "Custom" order (per-branch); unset rows fall to the end.
+    query = query.orderBy(sql`i.sort_order asc nulls last`).orderBy('i.created_at', 'desc');
+  } else {
+    const sortBy = SORT_COLUMNS.includes(filters.sortBy as (typeof SORT_COLUMNS)[number])
+      ? (filters.sortBy as (typeof SORT_COLUMNS)[number])
+      : 'created_at';
+    const dir = (filters.sortDir ?? 'desc') === 'asc' ? 'asc' : 'desc';
+    query = query.orderBy(`i.${sortBy}`, dir);
+  }
 
   let rows = (await query.execute()).map((r) => toRelations(r as unknown as JoinedRow));
 

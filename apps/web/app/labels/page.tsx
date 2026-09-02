@@ -39,7 +39,13 @@ export default async function LabelsPage({
   const [items, branches] = await Promise.all([
     listItems({
       ...(branch ? { branchId: branch } : {}),
-      sortBy: (sortBy || undefined) as 'created_at' | 'updated_at' | 'type' | 'status' | undefined,
+      sortBy: (sortBy || undefined) as
+        | 'created_at'
+        | 'updated_at'
+        | 'type'
+        | 'status'
+        | 'sort_order'
+        | undefined,
       sortDir: (sortDir || undefined) as 'asc' | 'desc' | undefined,
     }),
     listBranches(),

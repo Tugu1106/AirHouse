@@ -65,6 +65,8 @@ export interface Employee {
   user_id: string | null;
   /** Soft-delete marker; null = active. Kept so item history resolves their name. */
   deleted_at: string | null;
+  /** Manual "Custom" order within a branch (null = unset, sorts last). */
+  sort_order: number | null;
   created_at: string;
 }
 
@@ -76,6 +78,8 @@ export interface Item {
   properties: Record<string, unknown>;
   status: ItemStatus;
   deleted_at: string | null;
+  /** Manual "Custom" order within a branch (null = unset, sorts last). */
+  sort_order: number | null;
   created_by: UUID;
   created_at: string;
   updated_at: string;

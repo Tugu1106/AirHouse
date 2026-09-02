@@ -38,6 +38,7 @@ interface EmployeesTable {
   status: Generated<string>;
   email: Nullable<string>;
   deleted_at: Nullable<string>;
+  sort_order: Nullable<number>;
   created_at: Generated<string>;
 }
 
@@ -68,6 +69,7 @@ interface ItemsTable {
   properties: Json<Record<string, unknown>>;
   status: Generated<string>;
   deleted_at: Nullable<string>;
+  sort_order: Nullable<number>;
   created_by: string;
   created_at: Generated<string>;
   updated_at: Generated<string>;
