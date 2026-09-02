@@ -8,9 +8,25 @@ import { ITEM_STATUSES, type ItemStatus } from '@airlink/core/types';
 import type { ItemWithRelations } from '@airlink/core';
 import { useData } from './DataProvider';
 import {
+  DndContext,
+  closestCenter,
+  PointerSensor,
+  useSensor,
+  useSensors,
+  type DragEndEvent,
+} from '@dnd-kit/core';
+import {
+  SortableContext,
+  verticalListSortingStrategy,
+  useSortable,
+  arrayMove,
+} from '@dnd-kit/sortable';
+import { CSS } from '@dnd-kit/utilities';
+import {
   addItemAction,
   updateItemAction,
   transferItemAction,
+  reorderItemsAction,
   type ActionResult,
 } from '@/lib/actions';
 import { SubmitButton } from './SubmitButton';
@@ -66,8 +82,16 @@ export function ItemsView({ scopeBranchId }: { scopeBranchId?: string }) {
       );
     }
     const [by, dir] = sort.split(':');
-    const key = (r: ItemWithRelations) =>
-      by === 'type' ? r.type : by === 'status' ? r.status : by === 'updated_at' ? r.updated_at : r.created_at;
+    const key = (r: ItemWithRelations): string | number =>
+      by === 'sort_order'
+        ? (r.sort_order ?? Number.MAX_SAFE_INTEGER)
+        : by === 'type'
+          ? r.type
+          : by === 'status'
+            ? r.status
+            : by === 'updated_at'
+              ? r.updated_at
+              : r.created_at;
     rows = [...rows].sort((a, b) => {
       const av = key(a);
       const bv = key(b);
@@ -95,7 +119,39 @@ export function ItemsView({ scopeBranchId }: { scopeBranchId?: string }) {
     return out;
   }, [detailed, visible]);
 
-  const cols = (scopeBranchId ? 6 : 7) + detailFields.length;
+  // --- Custom (manual) order via drag-and-drop --------------------------------
+  // Only sensible on ONE branch with no filters/search, so a saved order stays
+  // coherent. Otherwise "Custom" just displays the saved order without handles.
+  const isCustom = sort === 'sort_order:asc';
+  const dndEnabled =
+    isCustom && !!scopeBranchId && !type && !status && !assignee && !search.trim() && !showDeleted;
+
+  const [dragOrder, setDragOrder] = useState<string[] | null>(null);
+  const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 5 } }));
+
+  const orderedRows = useMemo(() => {
+    if (dndEnabled && dragOrder) {
+      const byId = new Map(visible.map((v) => [v.id, v]));
+      return dragOrder.map((id) => byId.get(id)).filter(Boolean) as ItemWithRelations[];
+    }
+    return visible;
+  }, [visible, dragOrder, dndEnabled]);
+
+  const onDragEnd = async (e: DragEndEvent) => {
+    const { active, over } = e;
+    if (!over || active.id === over.id) return;
+    const ids = orderedRows.map((r) => r.id);
+    const from = ids.indexOf(String(active.id));
+    const to = ids.indexOf(String(over.id));
+    if (from < 0 || to < 0) return;
+    const next = arrayMove(ids, from, to);
+    setDragOrder(next); // optimistic
+    await reorderItemsAction(next);
+    await refresh();
+    setDragOrder(null); // DataProvider now reflects the saved sort_order
+  };
+
+  const cols = (scopeBranchId ? 6 : 7) + detailFields.length + (dndEnabled ? 1 : 0);
 
   return (
     <div className="space-y-4">
@@ -151,6 +207,7 @@ export function ItemsView({ scopeBranchId }: { scopeBranchId?: string }) {
               { value: 'type:asc', label: 'Type A–Z' },
               { value: 'status:asc', label: 'Status' },
               { value: 'updated_at:desc', label: 'Recently updated' },
+              { value: 'sort_order:asc', label: 'Custom (drag)' },
             ]}
           />
         </Field>
@@ -202,17 +259,23 @@ export function ItemsView({ scopeBranchId }: { scopeBranchId?: string }) {
         </div>
       </div>
 
+      {isCustom && !dndEnabled && (
+        <div className="rounded-md border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-xs text-amber-200">
+          Showing your saved custom order. To drag items into a new order, open a single branch and
+          clear the filters/search.
+        </div>
+      )}
+
       {/* Table */}
       <div className="overflow-x-auto rounded-lg border border-slate-800 bg-slate-900">
         <table
           className={`min-w-full divide-y divide-slate-800 ${
-            detailed
-              ? 'text-xs [&_td]:px-2.5 [&_td]:py-2.5 [&_th]:px-2.5'
-              : 'text-sm'
+            detailed ? 'text-xs [&_td]:px-2.5 [&_td]:py-2.5 [&_th]:px-2.5' : 'text-sm'
           }`}
         >
           <thead className="bg-slate-800/50 text-left text-xs uppercase tracking-wide text-slate-400">
             <tr>
+              {dndEnabled && <th className="w-8 px-2 py-3"></th>}
               <th className="px-4 py-3">Type</th>
               <th className="px-4 py-3">System name</th>
               <th className="px-4 py-3">Model name</th>
@@ -227,47 +290,35 @@ export function ItemsView({ scopeBranchId }: { scopeBranchId?: string }) {
               <th className="px-4 py-3 text-right">Actions</th>
             </tr>
           </thead>
-          <tbody className="divide-y divide-slate-800">
-            {visible.length === 0 && (
-              <tr>
-                <td colSpan={cols} className="px-4 py-10 text-center text-slate-400">
-                  No items found.
-                </td>
-              </tr>
-            )}
-            {visible.map((item) => (
-              <tr key={item.id} className={item.deleted_at ? 'bg-red-950/30' : undefined}>
-                <td className="px-4 py-3 font-medium text-slate-200">
-                  {typeLabel(item.type)}
-                  {item.deleted_at && (
-                    <span className="ml-2 rounded bg-red-100 px-1.5 py-0.5 text-xs text-red-700">deleted</span>
-                  )}
-                </td>
-                <td className="px-4 py-3 text-slate-400">{propertyValue(item, 'system_name')}</td>
-                <td className="px-4 py-3 text-slate-400">{propertyValue(item, 'model')}</td>
-                {detailFields.map((f) => (
-                  <td key={f.key} className="px-4 py-3 text-slate-400">
-                    {propertyValue(item, f.key)}
+
+          {dndEnabled ? (
+            <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={onDragEnd}>
+              <SortableContext items={orderedRows.map((r) => r.id)} strategy={verticalListSortingStrategy}>
+                <tbody className="divide-y divide-slate-800">
+                  {orderedRows.map((item) => (
+                    <SortableRow key={item.id} item={item}>
+                      <ItemCells item={item} detailFields={detailFields} scoped={!!scopeBranchId} />
+                    </SortableRow>
+                  ))}
+                </tbody>
+              </SortableContext>
+            </DndContext>
+          ) : (
+            <tbody className="divide-y divide-slate-800">
+              {orderedRows.length === 0 && (
+                <tr>
+                  <td colSpan={cols} className="px-4 py-10 text-center text-slate-400">
+                    No items found.
                   </td>
-                ))}
-                {!scopeBranchId && <td className="px-4 py-3 text-slate-400">{item.branch?.name ?? '—'}</td>}
-                <td className="px-4 py-3 text-slate-400">{item.assignee?.name ?? 'Unassigned'}</td>
-                <td className="px-4 py-3">
-                  <StatusBadge status={item.status} />
-                </td>
-                <td className="px-4 py-3">
-                  <div className="flex items-center justify-end">
-                    <Link
-                      href={`/item/${item.id}`}
-                      className="rounded-md border border-slate-700 px-3 py-1 text-sm text-slate-200 hover:bg-slate-800"
-                    >
-                      View
-                    </Link>
-                  </div>
-                </td>
-              </tr>
-            ))}
-          </tbody>
+                </tr>
+              )}
+              {orderedRows.map((item) => (
+                <tr key={item.id} className={item.deleted_at ? 'bg-red-950/30' : undefined}>
+                  <ItemCells item={item} detailFields={detailFields} scoped={!!scopeBranchId} />
+                </tr>
+              ))}
+            </tbody>
+          )}
         </table>
       </div>
 
@@ -307,6 +358,86 @@ function StatusBadge({ status }: { status: ItemStatus }) {
     lost: 'bg-red-100 text-red-700',
   };
   return <span className={`rounded px-2 py-0.5 text-xs font-medium ${styles[status]}`}>{status}</span>;
+}
+
+// The <td> cells for one item row — shared by the plain and draggable rows.
+function ItemCells({
+  item,
+  detailFields,
+  scoped,
+}: {
+  item: ItemWithRelations;
+  detailFields: { key: string; label: string }[];
+  scoped: boolean;
+}) {
+  return (
+    <>
+      <td className="px-4 py-3 font-medium text-slate-200">
+        {typeLabel(item.type)}
+        {item.deleted_at && (
+          <span className="ml-2 rounded bg-red-100 px-1.5 py-0.5 text-xs text-red-700">deleted</span>
+        )}
+      </td>
+      <td className="px-4 py-3 text-slate-400">{propertyValue(item, 'system_name')}</td>
+      <td className="px-4 py-3 text-slate-400">{propertyValue(item, 'model')}</td>
+      {detailFields.map((f) => (
+        <td key={f.key} className="px-4 py-3 text-slate-400">
+          {propertyValue(item, f.key)}
+        </td>
+      ))}
+      {!scoped && <td className="px-4 py-3 text-slate-400">{item.branch?.name ?? '—'}</td>}
+      <td className="px-4 py-3 text-slate-400">{item.assignee?.name ?? 'Unassigned'}</td>
+      <td className="px-4 py-3">
+        <StatusBadge status={item.status} />
+      </td>
+      <td className="px-4 py-3">
+        <div className="flex items-center justify-end">
+          <Link
+            href={`/item/${item.id}`}
+            className="rounded-md border border-slate-700 px-3 py-1 text-sm text-slate-200 hover:bg-slate-800"
+          >
+            View
+          </Link>
+        </div>
+      </td>
+    </>
+  );
+}
+
+// A draggable table row (Custom sort). The grip cell carries the drag listeners.
+function SortableRow({ item, children }: { item: ItemWithRelations; children: React.ReactNode }) {
+  const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
+    id: item.id,
+  });
+  const style: React.CSSProperties = {
+    transform: CSS.Transform.toString(transform),
+    transition,
+    opacity: isDragging ? 0.4 : 1,
+    position: isDragging ? 'relative' : undefined,
+    zIndex: isDragging ? 10 : undefined,
+  };
+  return (
+    <tr ref={setNodeRef} style={style} className={item.deleted_at ? 'bg-red-950/30' : 'bg-slate-900'}>
+      <td className="w-8 px-2 py-3">
+        <button
+          {...attributes}
+          {...listeners}
+          aria-label="Drag to reorder"
+          className="cursor-grab touch-none text-slate-500 transition hover:text-slate-200 active:cursor-grabbing"
+        >
+          <svg viewBox="0 0 20 20" width="16" height="16" fill="currentColor" aria-hidden>
+            <circle cx="7" cy="4" r="1.4" />
+            <circle cx="13" cy="4" r="1.4" />
+            <circle cx="7" cy="10" r="1.4" />
+            <circle cx="13" cy="10" r="1.4" />
+            <circle cx="7" cy="16" r="1.4" />
+            <circle cx="13" cy="16" r="1.4" />
+          </svg>
+        </button>
+      </td>
+      {children}
+    </tr>
+  );
 }
 
 export function Dialog({

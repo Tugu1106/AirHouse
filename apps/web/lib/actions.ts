@@ -22,6 +22,8 @@ import {
   deleteEmployee,
   provisionEmployeeLogin,
   resetEmployeeLogin,
+  reorderItems,
+  reorderEmployees,
   createAdmin,
   removeAdmin,
   verifyCredentials,
@@ -208,6 +210,28 @@ export async function removeAdminAction(id: string): Promise<ActionResult> {
     return { ok: false, error: errMessage(e) };
   }
   revalidatePath('/admins');
+  return { ok: true };
+}
+
+// --- manual reordering (Custom sort) --------------------------------------
+
+export async function reorderItemsAction(orderedIds: string[]): Promise<ActionResult> {
+  try {
+    await requireActor();
+    await reorderItems(orderedIds);
+  } catch (e) {
+    return { ok: false, error: errMessage(e) };
+  }
+  return { ok: true };
+}
+
+export async function reorderEmployeesAction(orderedIds: string[]): Promise<ActionResult> {
+  try {
+    await requireActor();
+    await reorderEmployees(orderedIds);
+  } catch (e) {
+    return { ok: false, error: errMessage(e) };
+  }
   return { ok: true };
 }
 
