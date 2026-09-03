@@ -128,7 +128,7 @@ export const AI_TOOLS = [
     function: {
       name: 'list_items',
       description:
-        'List or search inventory items. Filter by branch name, item type key, status, or a free-text search over serial/model.',
+        'List or search inventory items. Filter by branch name, item type key, status, or free text. Each item includes its full specs (model, system_name, cpu, ram, storage, os, …) so you can answer questions about RAM, CPU, storage, etc.',
       parameters: {
         type: 'object',
         properties: {
@@ -180,11 +180,11 @@ export async function runTool(name: string, args: Args): Promise<unknown> {
         status: s(args.status) as never,
         search: s(args.search),
       });
-      return items.slice(0, 60).map((i) => ({
+      // Spread the full properties (model, system_name, cpu, ram, storage, os,
+      // serial, …) so the model can filter/answer on any spec.
+      return items.slice(0, 80).map((i) => ({
+        ...(i.properties as Record<string, unknown>),
         type: i.type,
-        model: i.properties?.model ?? null,
-        system_name: i.properties?.system_name ?? null,
-        serial: i.properties?.serial ?? null,
         branch: i.branch?.name ?? null,
         assignedTo: i.assignee?.name ?? null,
         status: i.status,
