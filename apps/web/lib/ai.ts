@@ -99,7 +99,8 @@ export const AI_TOOLS = [
     type: 'function',
     function: {
       name: 'list_branches',
-      description: 'List all branches with their names.',
+      description:
+        'List all branches. The headquarters (a.k.a. HQ / central / head branch) is marked with "headquarters": true.',
       parameters: { type: 'object', properties: {} },
     },
   },
@@ -152,7 +153,11 @@ export async function runTool(name: string, args: Args): Promise<unknown> {
 
   switch (name) {
     case 'list_branches':
-      return branches.map((b) => ({ name: b.name, branchNo: b.branch_no }));
+      return branches.map((b) => ({
+        name: b.name,
+        branchNo: b.branch_no,
+        ...(b.is_hq ? { headquarters: true } : {}),
+      }));
 
     case 'list_item_types':
       return listItemTypes().map((t) => ({ key: t.key, label: t.label }));

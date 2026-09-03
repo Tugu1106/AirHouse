@@ -32,7 +32,28 @@ export function AiChat() {
   const [input, setInput] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [hydrated, setHydrated] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
+
+  // Keep the conversation while navigating around the app (sessionStorage:
+  // survives page changes + reload, clears when the tab is closed).
+  useEffect(() => {
+    try {
+      const raw = sessionStorage.getItem('ai_chat');
+      if (raw) setMessages(JSON.parse(raw));
+    } catch {
+      /* ignore */
+    }
+    setHydrated(true);
+  }, []);
+  useEffect(() => {
+    if (!hydrated) return;
+    try {
+      sessionStorage.setItem('ai_chat', JSON.stringify(messages));
+    } catch {
+      /* ignore */
+    }
+  }, [messages, hydrated]);
 
   useEffect(() => {
     scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight, behavior: 'smooth' });
@@ -113,8 +134,16 @@ export function AiChat() {
         </span>
         <div>
           <h1 className="text-base font-semibold text-white">Assistant</h1>
-          <p className="text-xs text-slate-400">Ask about inventory, employees, and branches · read-only</p>
+          <p className="text-xs text-slate-400">Ask about inventory, employees, and branches</p>
         </div>
+        {messages.length > 0 && (
+          <button
+            onClick={() => setMessages([])}
+            className="ml-auto rounded-md border border-slate-700 px-2.5 py-1 text-xs text-slate-400 transition hover:bg-slate-800 hover:text-slate-200"
+          >
+            Clear
+          </button>
+        )}
       </div>
 
       {/* messages */}
