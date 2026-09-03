@@ -1,7 +1,8 @@
 'use client';
 
 import { useEffect, useRef, useState } from 'react';
-import { Bot, Send, User, Sparkles } from 'lucide-react';
+import Link from 'next/link';
+import { Bot, Send, User, Sparkles, ArrowUpRight } from 'lucide-react';
 import { useData } from './DataProvider';
 
 interface Pending {
@@ -17,6 +18,7 @@ interface Msg {
   model?: string;
   pending?: Pending;
   resolved?: boolean;
+  link?: { href: string; label: string };
 }
 
 const EXAMPLES = [
@@ -108,7 +110,11 @@ export function AiChat() {
       if (data.ok) void refresh(); // keep Inventory/Employees/Map in sync
       setMessages((m) => [
         ...m,
-        { role: 'assistant', content: data.message || (data.ok ? 'Done.' : 'That didn’t work.') },
+        {
+          role: 'assistant',
+          content: data.message || (data.ok ? 'Done.' : 'That didn’t work.'),
+          link: data.ok ? data.link : undefined,
+        },
       ]);
     } catch {
       setMessages((m) => [...m, { role: 'assistant', content: 'Could not run that action.' }]);
@@ -189,6 +195,14 @@ export function AiChat() {
               >
                 {m.content}
               </div>
+              {m.link && (
+                <Link
+                  href={m.link.href}
+                  className="mt-2 inline-flex items-center gap-1 rounded-md border border-brand/40 bg-brand/10 px-2.5 py-1 text-xs font-medium text-brand-light transition hover:bg-brand/20"
+                >
+                  {m.link.label} <ArrowUpRight className="h-3.5 w-3.5" />
+                </Link>
+              )}
               {m.pending && !m.resolved && (
                 <div className="mt-2 rounded-lg border border-amber-500/30 bg-amber-500/10 p-3 text-left">
                   <div className="text-xs font-medium text-amber-200">{m.pending.summary}</div>

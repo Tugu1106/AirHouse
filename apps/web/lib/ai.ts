@@ -32,14 +32,31 @@ export function getAiConfig(): AiConfig | null {
   };
 }
 
-// Last-resort candidates if the live catalog can't be fetched. Free models come
-// and go, so these are only a safety net — the live list is preferred.
+// Prefer strong, well-known families (in this order) among the live free models.
+const PREFERRED_FAMILIES = [
+  'deepseek',
+  'qwen',
+  'moonshot', // Kimi
+  'kimi',
+  'mistral',
+  'z-ai', // GLM
+  'glm',
+  'meta-llama',
+  'google', // Gemini
+];
+
+// Last-resort candidates if the live catalog can't be fetched. Only a safety net.
 const FALLBACK_MODELS = [
-  'openai/gpt-oss-20b:free',
+  'deepseek/deepseek-chat-v3-0324:free',
   'qwen/qwen-2.5-72b-instruct:free',
-  'mistralai/mistral-small-3.1-24b-instruct:free',
+  'moonshotai/kimi-k2:free',
   'meta-llama/llama-3.3-70b-instruct:free',
 ];
+
+const familyRank = (id: string) => {
+  const i = PREFERRED_FAMILIES.findIndex((p) => id.toLowerCase().includes(p));
+  return i === -1 ? PREFERRED_FAMILIES.length : i;
+};
 
 const isZeroPrice = (v: unknown) => {
   const n = typeof v === 'number' ? v : Number(v);
@@ -86,11 +103,17 @@ async function freeToolModelIds(cfg: AiConfig): Promise<string[]> {
   return FALLBACK_MODELS;
 }
 
-/** Ordered list of models to try: pinned first, then live free+tool models. */
+/**
+ * Ordered models to try: pinned first, then the strongest live free+tool
+ * models (preferred families, best first), capped so we only use good ones.
+ */
 export async function getCandidateModels(cfg: AiConfig): Promise<string[]> {
   const dynamic = await freeToolModelIds(cfg);
-  const list = [cfg.pinnedModel, ...dynamic, ...FALLBACK_MODELS].filter(Boolean) as string[];
-  return [...new Set(list)];
+  const ranked = [...dynamic].sort((a, b) => familyRank(a) - familyRank(b));
+  const strong = ranked.filter((id) => familyRank(id) < PREFERRED_FAMILIES.length);
+  const primary = (strong.length ? strong : ranked).slice(0, 5);
+  const list = [cfg.pinnedModel, ...primary, ...FALLBACK_MODELS].filter(Boolean) as string[];
+  return [...new Set(list)].slice(0, 7);
 }
 
 // OpenAI-style tool schemas (OpenRouter is OpenAI-compatible). Read-only.
@@ -297,12 +320,18 @@ export function summarizeWrite(name: string, a: Args): string {
   return `Run ${name}`;
 }
 
+export interface WriteResult {
+  ok: boolean;
+  message: string;
+  link?: { href: string; label: string };
+}
+
 /** Execute a confirmed write with the admin's actor context. */
 export async function runWriteTool(
   name: string,
   args: Args,
   ctx: ActorContext,
-): Promise<{ ok: boolean; message: string }> {
+): Promise<WriteResult> {
   const branches = await listBranches();
   const branchByName = (n?: string) =>
     n ? branches.find((b) => b.name.toLowerCase() === n.toLowerCase()) : undefined;
@@ -322,7 +351,11 @@ export async function runWriteTool(
         },
         ctx,
       );
-      return { ok: true, message: `✓ Added employee ${emp.name}.` };
+      return {
+        ok: true,
+        message: `✓ Added employee ${emp.name}.`,
+        link: { href: `/employees/${emp.id}`, label: `Open ${emp.name}` },
+      };
     }
 
     if (name === 'add_item') {
@@ -343,11 +376,15 @@ export async function runWriteTool(
         const v = s(args[k]);
         if (v) props[k] = v;
       }
-      await addItem(
+      const created = await addItem(
         { type: def.key, branch_id: branch.id, assigned_to: assignedTo, status: 'active', properties: props },
         ctx,
       );
-      return { ok: true, message: `✓ Added ${def.label} to ${branch.name}.` };
+      return {
+        ok: true,
+        message: `✓ Added ${def.label} to ${branch.name}.`,
+        link: { href: `/item/${created.id}`, label: 'Open item' },
+      };
     }
 
     if (name === 'transfer_item') {
@@ -387,7 +424,11 @@ export async function runWriteTool(
         }
       }
       await transferItem(item.id, input, ctx);
-      return { ok: true, message: `✓ Transferred ${getItemType(item.type)?.label ?? item.type}.` };
+      return {
+        ok: true,
+        message: `✓ Transferred ${getItemType(item.type)?.label ?? item.type}.`,
+        link: { href: `/item/${item.id}`, label: 'Open item' },
+      };
     }
 
     return { ok: false, message: `Unknown action: ${name}.` };
