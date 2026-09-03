@@ -7,7 +7,8 @@ import { listBranches, listEmployees, listItems, listItemTypes } from '@airlink/
 export interface AiConfig {
   url: string;
   key: string;
-  model: string;
+  /** Optional pinned model (AI_MODEL); tried first, then rotation kicks in. */
+  pinnedModel?: string;
 }
 
 /** Returns the AI config, or null if no key is set (feature stays dormant). */
@@ -17,9 +18,69 @@ export function getAiConfig(): AiConfig | null {
   return {
     url: process.env.AI_API_URL || 'https://openrouter.ai/api/v1/chat/completions',
     key,
-    // Any OpenRouter model that supports tool-calling. Override with AI_MODEL.
-    model: process.env.AI_MODEL || 'meta-llama/llama-3.3-70b-instruct:free',
+    pinnedModel: process.env.AI_MODEL?.trim() || undefined,
   };
+}
+
+// Last-resort candidates if the live catalog can't be fetched. Free models come
+// and go, so these are only a safety net — the live list is preferred.
+const FALLBACK_MODELS = [
+  'openai/gpt-oss-20b:free',
+  'qwen/qwen-2.5-72b-instruct:free',
+  'mistralai/mistral-small-3.1-24b-instruct:free',
+  'meta-llama/llama-3.3-70b-instruct:free',
+];
+
+const isZeroPrice = (v: unknown) => {
+  const n = typeof v === 'number' ? v : Number(v);
+  return Number.isFinite(n) && n === 0;
+};
+
+let catalog: { at: number; ids: string[] } | null = null;
+const CATALOG_TTL_MS = 15 * 60 * 1000;
+
+/**
+ * Live list of OpenRouter models that are FREE and support tool-calling, newest
+ * account-available first. Cached 15 min. Falls back to FALLBACK_MODELS.
+ */
+async function freeToolModelIds(cfg: AiConfig): Promise<string[]> {
+  if (catalog && Date.now() - catalog.at < CATALOG_TTL_MS) return catalog.ids;
+  try {
+    const res = await fetch('https://openrouter.ai/api/v1/models/user?output_modalities=text', {
+      headers: { Authorization: `Bearer ${cfg.key}`, 'X-Title': 'AirHouse' },
+    });
+    if (res.ok) {
+      const data = await res.json();
+      const rows: unknown[] = Array.isArray(data?.data) ? data.data : [];
+      const ids = rows
+        .map((m) => m as Record<string, unknown>)
+        .filter((m) => typeof m.id === 'string' && (m.id as string).endsWith(':free'))
+        .filter(
+          (m) =>
+            Array.isArray(m.supported_parameters) &&
+            (m.supported_parameters as unknown[]).includes('tools'),
+        )
+        .filter((m) => {
+          const p = m.pricing as Record<string, unknown> | undefined;
+          return !p || (isZeroPrice(p.prompt) && isZeroPrice(p.completion));
+        })
+        .map((m) => m.id as string);
+      if (ids.length) {
+        catalog = { at: Date.now(), ids };
+        return ids;
+      }
+    }
+  } catch {
+    /* fall through to the safety net */
+  }
+  return FALLBACK_MODELS;
+}
+
+/** Ordered list of models to try: pinned first, then live free+tool models. */
+export async function getCandidateModels(cfg: AiConfig): Promise<string[]> {
+  const dynamic = await freeToolModelIds(cfg);
+  const list = [cfg.pinnedModel, ...dynamic, ...FALLBACK_MODELS].filter(Boolean) as string[];
+  return [...new Set(list)];
 }
 
 // OpenAI-style tool schemas (OpenRouter is OpenAI-compatible). Read-only.

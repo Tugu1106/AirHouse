@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 import { getCurrentUser } from '@/lib/session';
-import { getAiConfig, AI_TOOLS, runTool } from '@/lib/ai';
+import { getAiConfig, getCandidateModels, AI_TOOLS, runTool } from '@/lib/ai';
 
 export const dynamic = 'force-dynamic';
 
@@ -43,38 +43,62 @@ export async function POST(req: Request) {
     })),
   ];
 
-  const usedTools: string[] = [];
+  const candidates = await getCandidateModels(cfg);
+  if (candidates.length === 0) {
+    return NextResponse.json({ error: 'No usable AI models are available.' }, { status: 502 });
+  }
 
-  try {
-    for (let step = 0; step < 6; step++) {
-      const res = await fetch(cfg.url, {
+  const usedTools: string[] = [];
+  let modelIdx = 0; // sticks to the first model that works; rotates on failure
+
+  // A model error we should retry on the NEXT model (dead free tier, rate limit,
+  // no tool support). Auth/other errors are surfaced as-is.
+  const shouldRotate = (status: number, body: string) =>
+    status === 402 ||
+    status === 404 ||
+    status === 429 ||
+    (status === 400 && /tool/i.test(body)) ||
+    /no endpoints|not a valid model|unavailable|rate.?limit/i.test(body);
+
+  /** Call the model, rotating to the next candidate on retryable failures. */
+  async function complete(): Promise<ChatMessage> {
+    let lastErr = 'no models available';
+    for (; modelIdx < candidates.length; modelIdx++) {
+      const res = await fetch(cfg!.url, {
         method: 'POST',
         headers: {
-          Authorization: `Bearer ${cfg.key}`,
+          Authorization: `Bearer ${cfg!.key}`,
           'Content-Type': 'application/json',
           'HTTP-Referer': 'http://airhouse.local',
           'X-Title': 'AirHouse',
         },
         body: JSON.stringify({
-          model: cfg.model,
+          model: candidates[modelIdx],
           messages,
           tools: AI_TOOLS,
           tool_choice: 'auto',
         }),
       });
 
-      if (!res.ok) {
-        const detail = (await res.text()).slice(0, 400);
-        return NextResponse.json(
-          { error: `AI request failed (${res.status}). ${detail}` },
-          { status: 502 },
-        );
+      if (res.ok) {
+        const data = await res.json();
+        const msg: ChatMessage | undefined = data?.choices?.[0]?.message;
+        if (msg) return msg;
+        lastErr = 'empty response';
+        continue;
       }
 
-      const data = await res.json();
-      const msg: ChatMessage | undefined = data?.choices?.[0]?.message;
-      if (!msg) return NextResponse.json({ error: 'AI returned no message.' }, { status: 502 });
+      const body = (await res.text()).slice(0, 300);
+      lastErr = `(${res.status}) ${body}`;
+      if (shouldRotate(res.status, body)) continue; // try the next model
+      throw new Error(lastErr); // auth / non-model error → stop
+    }
+    throw new Error(`All models failed. Last error: ${lastErr}`);
+  }
 
+  try {
+    for (let step = 0; step < 6; step++) {
+      const msg = await complete();
       messages.push(msg);
 
       if (msg.tool_calls && msg.tool_calls.length > 0) {
@@ -102,7 +126,11 @@ export async function POST(req: Request) {
         continue; // let the model read the results and continue
       }
 
-      return NextResponse.json({ reply: msg.content ?? '', tools: [...new Set(usedTools)] });
+      return NextResponse.json({
+        reply: msg.content ?? '',
+        tools: [...new Set(usedTools)],
+        model: candidates[modelIdx],
+      });
     }
 
     return NextResponse.json({

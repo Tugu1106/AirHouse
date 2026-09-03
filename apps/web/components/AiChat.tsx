@@ -7,6 +7,7 @@ interface Msg {
   role: 'user' | 'assistant';
   content: string;
   tools?: string[];
+  model?: string;
 }
 
 const EXAMPLES = [
@@ -45,7 +46,10 @@ export function AiChat() {
       if (!res.ok) {
         setError(data?.error ?? 'Something went wrong.');
       } else {
-        setMessages((m) => [...m, { role: 'assistant', content: data.reply || '(no answer)', tools: data.tools }]);
+        setMessages((m) => [
+          ...m,
+          { role: 'assistant', content: data.reply || '(no answer)', tools: data.tools, model: data.model },
+        ]);
       }
     } catch {
       setError('Could not reach the assistant.');
@@ -110,8 +114,12 @@ export function AiChat() {
               >
                 {m.content}
               </div>
-              {m.tools && m.tools.length > 0 && (
-                <div className="mt-1 text-[11px] text-slate-600">looked up: {m.tools.join(', ')}</div>
+              {(m.tools?.length || m.model) && (
+                <div className="mt-1 text-[11px] text-slate-600">
+                  {m.tools?.length ? `looked up: ${m.tools.join(', ')}` : ''}
+                  {m.tools?.length && m.model ? ' · ' : ''}
+                  {m.model ? m.model.replace(':free', '') : ''}
+                </div>
               )}
             </div>
           </div>
