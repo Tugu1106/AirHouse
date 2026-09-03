@@ -45,6 +45,7 @@ const ACTION_LABEL: Record<string, string> = {
 // YYYY-MM-DD HH:mm:ss in the viewer's local time (sv-SE gives an ISO-like format).
 const ts = (iso: string) => new Date(iso).toLocaleString('sv-SE');
 
+// Plain-text version (used for "Copy loaded").
 function terminalLine(r: ActivityRow): string {
   const verb = (ACTION_LABEL[r.action] ?? r.action).toLowerCase(); // created / updated / ...
   const [kind = '', ...rest] = r.target.split(' · ');
@@ -52,6 +53,22 @@ function terminalLine(r: ActivityRow): string {
   const thing = name ? `${kind.toLowerCase()} ${name}` : kind.toLowerCase();
   const aiTag = r.via === 'ai' ? ' [AI]' : '';
   return `${ts(r.when)}  ${r.actor}${aiTag} ${verb} ${thing}${r.detail ? ` — ${r.detail}` : ''}`;
+}
+
+// JSX version so the [AI] tag can be highlighted.
+function TerminalRow({ r }: { r: ActivityRow }) {
+  const verb = (ACTION_LABEL[r.action] ?? r.action).toLowerCase();
+  const [kind = '', ...rest] = r.target.split(' · ');
+  const name = rest.join(' · ');
+  const thing = name ? `${kind.toLowerCase()} ${name}` : kind.toLowerCase();
+  return (
+    <>
+      {`${ts(r.when)}  ${r.actor}`}
+      {r.via === 'ai' && <span className="font-semibold text-sky-400"> [AI]</span>}
+      {` ${verb} ${thing}${r.detail ? ` — ${r.detail}` : ''}`}
+      {'\n'}
+    </>
+  );
 }
 
 export function ActivityView({
@@ -205,7 +222,9 @@ export function ActivityView({
               ref={contentRef}
               className="whitespace-pre-wrap break-words font-mono text-xs leading-relaxed text-emerald-300 selection:bg-emerald-500/30"
             >
-              {rows.length === 0 ? '# no activity yet' : allText}
+              {rows.length === 0
+                ? '# no activity yet'
+                : ordered.map((r) => <TerminalRow key={r.id} r={r} />)}
             </pre>
             {/* Breathing room so the newest line sits above the bottom edge,
                 not glued to it. */}
