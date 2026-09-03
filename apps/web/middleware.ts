@@ -1,9 +1,12 @@
 import { NextResponse, type NextRequest } from 'next/server';
 
-// Coarse gate only (runs on the Edge, so no DB): send anonymous users to /login,
-// and logged-in users away from /login. The real authorization — valid session,
-// admin vs worker, forced password reset — happens in the server components and
-// actions, which can reach Postgres.
+// Coarse gate only (runs on the Edge, so no DB): send anonymous users to /login.
+// The real authorization — valid session, admin vs worker, forced password reset,
+// and routing a logged-in user to their dashboard — happens in the server
+// components/actions, which can reach Postgres. We deliberately do NOT bounce
+// cookie-holders away from /login here: the cookie may be stale (its session row
+// already deleted), and blocking /login on a mere cookie both traps such users in
+// a /login → / → /login redirect loop and prevents switching accounts.
 // /scan is the public asset-tag lookup a QR opens — no login (any phone on the
 // internal network can view an item's live owner/branch/status).
 const PUBLIC = ['/login', '/scan'];
@@ -16,12 +19,6 @@ export function middleware(request: NextRequest) {
   if (!hasSession && !isPublic) {
     const url = request.nextUrl.clone();
     url.pathname = '/login';
-    url.search = '';
-    return NextResponse.redirect(url);
-  }
-  if (hasSession && pathname === '/login') {
-    const url = request.nextUrl.clone();
-    url.pathname = '/';
     url.search = '';
     return NextResponse.redirect(url);
   }

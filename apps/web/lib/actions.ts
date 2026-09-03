@@ -77,6 +77,15 @@ export async function signInAction(_prev: ActionResult | null, formData: FormDat
   try {
     user = await verifyCredentials(email, password);
     if (!user) return { ok: false, error: 'Invalid email or password.' };
+    // Switching accounts (or re-login): drop any prior session so it doesn't linger.
+    const oldId = await getSessionId();
+    if (oldId) {
+      try {
+        await deleteSession(oldId);
+      } catch {
+        /* ignore */
+      }
+    }
     const session = await createSession(user.id);
     await setSessionCookie(session.id, session.expiresAt);
   } catch (e) {
