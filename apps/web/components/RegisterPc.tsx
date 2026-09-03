@@ -2,9 +2,18 @@
 
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { Laptop, Download } from 'lucide-react';
+import { Laptop, Download, RefreshCw } from 'lucide-react';
 
 type Status = 'idle' | 'waiting' | 'ready' | 'saving' | 'done' | 'error';
+
+// "just now" / "3 min ago" / "2 h ago" for the last-scan timestamp.
+function timeAgo(ms: number): string {
+  const s = Math.max(0, Math.round((Date.now() - ms) / 1000));
+  if (s < 30) return 'just now';
+  if (s < 90) return '1 min ago';
+  if (s < 3600) return `${Math.round(s / 60)} min ago`;
+  return `${Math.round(s / 3600)} h ago`;
+}
 
 // Clipboard works only in a secure context (HTTPS); fall back for plain HTTP.
 async function copyText(text: string): Promise<boolean> {
@@ -39,6 +48,7 @@ export function RegisterPc() {
   const [copied, setCopied] = useState(false);
   const [specs, setSpecs] = useState<Record<string, string> | null>(null);
   const [type, setType] = useState<string | null>(null);
+  const [scannedAt, setScannedAt] = useState<number | null>(null);
   const [status, setStatus] = useState<Status>('idle');
   const [message, setMessage] = useState('');
 
@@ -61,6 +71,7 @@ export function RegisterPc() {
       if (data.ready && data.specs) {
         setSpecs(data.specs);
         setType(data.type);
+        setScannedAt(data.scannedAt ?? null);
         setStatus('ready');
       }
     } catch {
@@ -79,6 +90,7 @@ export function RegisterPc() {
         if (data.ready) {
           setSpecs(data.specs);
           setType(data.type);
+          setScannedAt(data.scannedAt ?? Date.now());
           setStatus('ready');
         }
       } catch {
@@ -120,6 +132,25 @@ export function RegisterPc() {
     }
   };
 
+  // Re-scan: forget the stored specs, re-download the scanner, wait for fresh data.
+  const rescan = async () => {
+    if (!token) return;
+    try {
+      await fetch('/api/scan/reset', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ token }),
+      });
+    } catch {
+      /* proceed anyway; a fresh submit overwrites the old specs */
+    }
+    setSpecs(null);
+    setScannedAt(null);
+    setMessage('');
+    setStatus('waiting');
+    downloadBat();
+  };
+
   const downloadBat = () => {
     if (!token) return;
     const bat = buildBat(token, window.location.origin);
@@ -139,6 +170,7 @@ export function RegisterPc() {
     setStatus('idle');
     setToken(null);
     setSpecs(null);
+    setScannedAt(null);
     setMessage('');
   };
 
@@ -215,7 +247,16 @@ export function RegisterPc() {
 
             {status === 'ready' && specs && (
               <div className="space-y-3">
-                <p className="text-sm text-slate-300">Your PC reported this — review and confirm:</p>
+                <div className="flex items-center justify-between">
+                  <p className="text-sm font-medium text-slate-200">Last scan</p>
+                  <span className="text-xs text-slate-500">
+                    {scannedAt ? timeAgo(scannedAt) : ''}
+                  </span>
+                </div>
+                <p className="text-xs text-slate-500">
+                  These are the specs your PC reported. If they look right, register them — otherwise
+                  re-scan to read the PC again.
+                </p>
                 <dl className="divide-y divide-slate-800 rounded-lg border border-slate-800">
                   <Row k="Type" v={type ?? '—'} />
                   {Object.entries(specs).map(([k, v]) => (
@@ -224,6 +265,12 @@ export function RegisterPc() {
                 </dl>
                 <button onClick={confirm} className="btn-primary w-full">
                   Confirm &amp; register
+                </button>
+                <button
+                  onClick={rescan}
+                  className="btn-ghost inline-flex w-full items-center justify-center gap-2"
+                >
+                  <RefreshCw className="h-4 w-4" /> Re-scan this PC
                 </button>
               </div>
             )}

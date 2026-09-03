@@ -18,5 +18,6 @@ export async function GET(req: Request) {
     ready: !!scan.specs,
     specs: scan.specs ?? null,
     type: scan.itemType ?? null,
+    scannedAt: scan.scannedAt ?? null,
   });
 }

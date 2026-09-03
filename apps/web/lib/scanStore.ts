@@ -12,6 +12,7 @@ export interface ScanEntry {
   createdAt: number;
   specs?: Record<string, string>;
   itemType?: string; // 'desktop' | 'laptop'
+  scannedAt?: number; // when the PC last reported specs
 }
 
 const store = new Map<string, ScanEntry>();
@@ -54,6 +55,19 @@ export function setScanSpecs(
   if (!e) return false;
   e.specs = specs;
   e.itemType = itemType;
+  e.scannedAt = Date.now();
+  return true;
+}
+
+// Drop the reported specs but keep the token alive, so the employee can re-scan
+// and the browser waits for fresh data instead of seeing the stale scan.
+export function clearScanSpecs(token: string): boolean {
+  const e = store.get(token);
+  if (!e) return false;
+  delete e.specs;
+  delete e.itemType;
+  delete e.scannedAt;
+  e.createdAt = Date.now(); // extend TTL for the fresh scan
   return true;
 }
 

@@ -24,5 +24,6 @@ export async function POST() {
     ready: !!scan?.specs,
     specs: scan?.specs ?? null,
     type: scan?.itemType ?? null,
+    scannedAt: scan?.scannedAt ?? null,
   });
 }
