@@ -2,8 +2,38 @@
 
 import { useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
+import ReactMarkdown, { type Components } from 'react-markdown';
+import remarkGfm from 'remark-gfm';
 import { Bot, Send, User, Sparkles, ArrowUpRight } from 'lucide-react';
 import { useData } from './DataProvider';
+
+// Dark-theme styling for markdown in assistant replies (tables, lists, etc.).
+const MD: Components = {
+  p: ({ children }) => <p className="my-1 first:mt-0 last:mb-0">{children}</p>,
+  strong: ({ children }) => <strong className="font-semibold text-white">{children}</strong>,
+  ul: ({ children }) => <ul className="my-1 list-disc space-y-0.5 pl-5">{children}</ul>,
+  ol: ({ children }) => <ol className="my-1 list-decimal space-y-0.5 pl-5">{children}</ol>,
+  code: ({ children }) => (
+    <code className="rounded bg-slate-800 px-1 py-0.5 text-[11px] text-slate-200">{children}</code>
+  ),
+  a: ({ children, href }) => (
+    <a href={href} className="text-brand-light underline">
+      {children}
+    </a>
+  ),
+  table: ({ children }) => (
+    <div className="my-2 overflow-x-auto rounded-lg border border-slate-700">
+      <table className="w-full border-collapse text-xs">{children}</table>
+    </div>
+  ),
+  thead: ({ children }) => (
+    <thead className="bg-slate-800/60 text-left text-slate-400">{children}</thead>
+  ),
+  th: ({ children }) => <th className="whitespace-nowrap px-2.5 py-1.5 font-medium">{children}</th>,
+  td: ({ children }) => (
+    <td className="border-t border-slate-800 px-2.5 py-1.5 text-slate-200">{children}</td>
+  ),
+};
 
 interface Pending {
   tool: string;
@@ -185,15 +215,21 @@ export function AiChat() {
             >
               {m.role === 'user' ? <User className="h-4 w-4" /> : <Bot className="h-4 w-4" />}
             </span>
-            <div className={`max-w-[80%] ${m.role === 'user' ? 'text-right' : ''}`}>
+            <div className={m.role === 'user' ? 'max-w-[80%] text-right' : 'max-w-[92%]'}>
               <div
-                className={`whitespace-pre-wrap rounded-2xl px-4 py-2.5 text-sm ${
+                className={`rounded-2xl px-4 py-2.5 text-sm ${
                   m.role === 'user'
-                    ? 'bg-brand text-white'
+                    ? 'whitespace-pre-wrap bg-brand text-white'
                     : 'border border-slate-800 bg-slate-800/50 text-slate-100'
                 }`}
               >
-                {m.content}
+                {m.role === 'user' ? (
+                  m.content
+                ) : (
+                  <ReactMarkdown remarkPlugins={[remarkGfm]} components={MD}>
+                    {m.content}
+                  </ReactMarkdown>
+                )}
               </div>
               {m.link && (
                 <Link
