@@ -9,6 +9,7 @@ import {
 } from '@airlink/core';
 import { getRole } from '@/lib/auth';
 import { signOutAction } from '@/lib/actions';
+import { RegisterPc } from '@/components/RegisterPc';
 
 export const dynamic = 'force-dynamic';
 
@@ -132,7 +133,7 @@ export default async function MePage() {
               {items.length}
             </span>
           </h2>
-          <span className="text-xs text-slate-500">Read-only</span>
+          <RegisterPc />
         </div>
 
         {items.length === 0 ? (

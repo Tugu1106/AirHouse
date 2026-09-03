@@ -35,6 +35,7 @@ export interface ItemTypeDef {
 // shown (blank if unknown).
 const COMPUTER_FIELDS: ItemTypeField[] = [
   { key: 'model', label: 'Model name', type: 'text', required: true },
+  { key: 'serial', label: 'Serial number', type: 'text', placeholder: 'e.g. 8F1S574' },
   { key: 'system_name', label: 'System name', type: 'text', placeholder: 'e.g. PC-014' },
   { key: 'cpu', label: 'CPU', type: 'text', placeholder: 'e.g. i5-11500' },
   { key: 'ram', label: 'RAM', type: 'text', placeholder: 'e.g. 16GB' },

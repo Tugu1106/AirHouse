@@ -51,8 +51,8 @@ function terminalLine(r: ActivityRow): string {
   const [kind = '', ...rest] = r.target.split(' · ');
   const name = rest.join(' · ');
   const thing = name ? `${kind.toLowerCase()} ${name}` : kind.toLowerCase();
-  const aiTag = r.via === 'ai' ? ' [AI]' : '';
-  return `${ts(r.when)}  ${r.actor}${aiTag} ${verb} ${thing}${r.detail ? ` — ${r.detail}` : ''}`;
+  const tag = r.via ? ` [${r.via.toUpperCase()}]` : '';
+  return `${ts(r.when)}  ${r.actor}${tag} ${verb} ${thing}${r.detail ? ` — ${r.detail}` : ''}`;
 }
 
 // JSX version so the [AI] tag can be highlighted.
@@ -64,7 +64,7 @@ function TerminalRow({ r }: { r: ActivityRow }) {
   return (
     <>
       {`${ts(r.when)}  ${r.actor}`}
-      {r.via === 'ai' && <span className="font-semibold text-sky-400"> [AI]</span>}
+      {r.via && <span className="font-semibold text-sky-400"> [{r.via.toUpperCase()}]</span>}
       {` ${verb} ${thing}${r.detail ? ` — ${r.detail}` : ''}`}
       {'\n'}
     </>
