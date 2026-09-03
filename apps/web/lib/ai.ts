@@ -236,7 +236,7 @@ export const AI_WRITE_TOOLS = [
             type: 'string',
             description: 'Developer, Ecommerce, HR manager, or Agent',
           },
-          status: { type: 'string', description: 'active, newly_hired, on_leave, etc.' },
+          status: { type: 'string', description: 'active, trial, pregnancy_leave, or fired' },
           phone: { type: 'string' },
         },
         required: ['name'],

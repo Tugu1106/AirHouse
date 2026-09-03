@@ -42,11 +42,9 @@ const restrictVerticalAxis: Modifier = ({ transform }) => ({ ...transform, x: 0 
 
 const STATUS_STYLES: Record<EmployeeStatus, string> = {
   active: 'bg-emerald-100 text-emerald-700',
-  newly_hired: 'bg-blue-100 text-blue-700',
-  on_leave: 'bg-amber-100 text-amber-700',
+  trial: 'bg-blue-100 text-blue-700',
   pregnancy_leave: 'bg-pink-100 text-pink-700',
   fired: 'bg-red-100 text-red-700',
-  resigned: 'bg-slate-200 text-slate-400',
 };
 const statusLabel = (s: string) => EMPLOYEE_STATUSES.find((x) => x.key === s)?.label ?? s;
 const positionLabel = (p: string | null) =>

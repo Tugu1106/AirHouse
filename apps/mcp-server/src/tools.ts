@@ -281,7 +281,7 @@ export const TOOLS: ToolDef[] = [
   {
     name: 'update_employee',
     description:
-      'Update an existing employee (found by name). Change name, status (e.g. fired, on_leave), phone, position, or branch. Passing an email creates a read-only login for them (if they do not have one yet) and returns a temporary password.',
+      'Update an existing employee (found by name). Change name, status (active, trial, pregnancy_leave, fired), phone, position, or branch. Passing an email creates a read-only login for them (if they do not have one yet) and returns a temporary password.',
     inputSchema: {
       type: 'object',
       properties: {

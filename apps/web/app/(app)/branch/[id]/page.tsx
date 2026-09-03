@@ -27,11 +27,9 @@ const positionLabel = (p: string | null) =>
 // Status → dot colour for the compact employee chips.
 const STATUS_DOT: Record<string, string> = {
   active: 'bg-emerald-400',
-  newly_hired: 'bg-sky-400',
-  on_leave: 'bg-amber-400',
+  trial: 'bg-sky-400',
   pregnancy_leave: 'bg-amber-400',
   fired: 'bg-red-400',
-  resigned: 'bg-slate-500',
 };
 
 const initialsOf = (name: string) =>

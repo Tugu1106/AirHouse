@@ -22,21 +22,13 @@ export interface Branch {
   created_at: string;
 }
 
-export type EmployeeStatus =
-  | 'active'
-  | 'newly_hired'
-  | 'on_leave'
-  | 'pregnancy_leave'
-  | 'fired'
-  | 'resigned';
+export type EmployeeStatus = 'active' | 'trial' | 'pregnancy_leave' | 'fired';
 
 export const EMPLOYEE_STATUSES: { key: EmployeeStatus; label: string }[] = [
   { key: 'active', label: 'Active' },
-  { key: 'newly_hired', label: 'Newly hired' },
-  { key: 'on_leave', label: 'On leave / rest' },
+  { key: 'trial', label: 'Trial' },
   { key: 'pregnancy_leave', label: 'Pregnancy leave' },
   { key: 'fired', label: 'Fired' },
-  { key: 'resigned', label: 'Resigned' },
 ];
 
 // Default position suggestions. Positions are FREE TEXT — the web form offers

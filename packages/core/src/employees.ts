@@ -211,7 +211,7 @@ export async function updateEmployee(
   if (patch.status !== undefined) {
     update.status = patch.status;
     // keep the legacy `active` boolean roughly in sync with the lifecycle
-    update.active = !['fired', 'resigned'].includes(patch.status);
+    update.active = patch.status !== 'fired';
   }
 
   const db = getDb();
