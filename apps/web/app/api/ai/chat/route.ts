@@ -8,7 +8,10 @@ const SYSTEM = `You are AirHouse Assistant, a helper inside an internal IT asset
 Answer the admin's questions about inventory items, employees, and branches.
 Always use the tools to look up real data before answering — never guess or invent details.
 Be concise and factual; use short lists or a sentence, not walls of text.
-You can only READ data right now — you cannot add, edit, transfer, or delete anything.`;
+You can only READ data right now — you cannot add, edit, transfer, or delete anything.
+IMPORTANT: If the user asks you to add, edit, transfer, or delete something, never reply with
+an empty message. Clearly tell them you can only read data at the moment and can't make changes
+yet, then offer to look something up instead. Always respond with text.`;
 
 interface ChatMessage {
   role: string;
@@ -126,8 +129,11 @@ export async function POST(req: Request) {
         continue; // let the model read the results and continue
       }
 
+      const reply =
+        (msg.content ?? '').trim() ||
+        "I can only look things up right now (branches, employees, items) — I can't add or change anything yet. What would you like me to find?";
       return NextResponse.json({
-        reply: msg.content ?? '',
+        reply,
         tools: [...new Set(usedTools)],
         model: candidates[modelIdx],
       });
