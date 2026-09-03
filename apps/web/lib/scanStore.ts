@@ -15,15 +15,26 @@ export interface ScanEntry {
 }
 
 const store = new Map<string, ScanEntry>();
-const TTL_MS = 15 * 60 * 1000;
+const TTL_MS = 60 * 60 * 1000;
 
 function sweep() {
   const now = Date.now();
   for (const [k, v] of store) if (now - v.createdAt > TTL_MS) store.delete(k);
 }
 
+// Reuse one live token per employee. A downloaded scanner embeds the token, so
+// re-opening the dialog (or re-running the same .bat) must keep working; we also
+// refresh branch/actor in case an admin set the employee's branch in the meantime.
 export function createScan(entry: Omit<ScanEntry, 'createdAt'>): string {
   sweep();
+  for (const [token, e] of store) {
+    if (e.employeeId === entry.employeeId) {
+      e.branchId = entry.branchId;
+      e.actorId = entry.actorId;
+      e.createdAt = Date.now();
+      return token;
+    }
+  }
   const token = randomUUID();
   store.set(token, { ...entry, createdAt: Date.now() });
   return token;

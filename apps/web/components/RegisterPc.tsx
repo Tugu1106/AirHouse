@@ -57,6 +57,12 @@ export function RegisterPc() {
       }
       setToken(data.token);
       setScript(buildScript(data.token, window.location.origin));
+      // Same employee already scanned this session → skip straight to review.
+      if (data.ready && data.specs) {
+        setSpecs(data.specs);
+        setType(data.type);
+        setStatus('ready');
+      }
     } catch {
       setStatus('error');
       setMessage('Could not start.');
@@ -268,7 +274,20 @@ try {
   $isLaptop = ($chassis | Where-Object { $_ -in 8,9,10,11,12,14,18,21,30,31,32 }).Count -gt 0
   $ramGB = [math]::Round($cs.TotalPhysicalMemory / 1GB)
   $storage = (Get-CimInstance Win32_DiskDrive | ForEach-Object { "$([math]::Round($_.Size/1GB)) GB" }) -join ' + '
-  $body = @{ token = "${token}"; type = if ($isLaptop) { "laptop" } else { "desktop" }; specs = @{ system_name = $env:COMPUTERNAME; model = "$($cs.Manufacturer) $($cs.Model)".Trim(); serial = $bios.SerialNumber; cpu = $cpu.Name.Trim(); ram = "$ramGB GB"; storage = $storage; os = $os.Caption } } | ConvertTo-Json -Depth 4
+  $type = if ($isLaptop) { "laptop" } else { "desktop" }
+  $specs = @{ system_name = $env:COMPUTERNAME; model = "$($cs.Manufacturer) $($cs.Model)".Trim(); serial = $bios.SerialNumber; cpu = $cpu.Name.Trim(); ram = "$ramGB GB"; storage = $storage; os = $os.Caption }
+  Write-Host ""
+  Write-Host "This PC:" -ForegroundColor Cyan
+  Write-Host ("  Type:    " + $type)
+  Write-Host ("  System:  " + $specs.system_name)
+  Write-Host ("  Model:   " + $specs.model)
+  Write-Host ("  Serial:  " + $specs.serial)
+  Write-Host ("  CPU:     " + $specs.cpu)
+  Write-Host ("  RAM:     " + $specs.ram)
+  Write-Host ("  Storage: " + $specs.storage)
+  Write-Host ("  OS:      " + $specs.os)
+  Write-Host ""
+  $body = @{ token = "${token}"; type = $type; specs = $specs } | ConvertTo-Json -Depth 4
   Invoke-RestMethod -Uri "${origin}/api/scan/submit" -Method Post -Body $body -ContentType "application/json" | Out-Null
   Write-Host "Success! Return to your browser and click Confirm." -ForegroundColor Green
 } catch {
@@ -301,7 +320,8 @@ function buildBat(token: string, origin: string): string {
     'echo.',
     `powershell -NoProfile -ExecutionPolicy Bypass -EncodedCommand ${enc}`,
     'echo.',
-    'timeout /t 4 >nul',
+    'echo You can close this window and go back to your browser.',
+    'pause',
     '',
   ].join('\r\n');
 }

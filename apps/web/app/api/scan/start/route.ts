@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
 import { getEmployee } from '@airlink/core';
 import { getCurrentUser } from '@/lib/session';
-import { createScan } from '@/lib/scanStore';
+import { createScan, getScan } from '@/lib/scanStore';
 
 export const dynamic = 'force-dynamic';
 
@@ -16,5 +16,13 @@ export async function POST() {
   if (!emp) return NextResponse.json({ error: 'Employee profile not found.' }, { status: 404 });
 
   const token = createScan({ employeeId: emp.id, actorId: user.id, branchId: emp.branch_id });
-  return NextResponse.json({ token });
+  // If this employee already scanned (reused token with specs), let the UI jump
+  // straight to the review step instead of waiting again.
+  const scan = getScan(token);
+  return NextResponse.json({
+    token,
+    ready: !!scan?.specs,
+    specs: scan?.specs ?? null,
+    type: scan?.itemType ?? null,
+  });
 }
