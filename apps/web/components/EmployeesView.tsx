@@ -473,7 +473,13 @@ export function EmployeeForm({
             name="status"
             defaultValue={emp?.status ?? 'active'}
             className="mt-1"
-            options={EMPLOYEE_STATUSES.map((s) => ({ value: s.key, label: s.label }))}
+            options={[
+              // keep an existing off-list status (old data) selectable on edit
+              ...(emp?.status && !EMPLOYEE_STATUSES.some((s) => s.key === emp.status)
+                ? [{ value: emp.status, label: emp.status }]
+                : []),
+              ...EMPLOYEE_STATUSES.map((s) => ({ value: s.key, label: s.label })),
+            ]}
           />
         </div>
       </div>
