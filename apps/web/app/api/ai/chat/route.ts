@@ -5,12 +5,14 @@ import {
   getCandidateModels,
   AI_TOOLS,
   AI_WRITE_TOOLS,
+  AI_ACTION_TOOLS,
   WRITE_TOOL_NAMES,
+  ACTION_TOOL_NAMES,
   summarizeWrite,
   runTool,
 } from '@/lib/ai';
 
-const ALL_TOOLS = [...AI_TOOLS, ...AI_WRITE_TOOLS];
+const ALL_TOOLS = [...AI_TOOLS, ...AI_WRITE_TOOLS, ...AI_ACTION_TOOLS];
 
 export const dynamic = 'force-dynamic';
 
@@ -29,6 +31,11 @@ Do ONE change per turn: if the user asks for several changes (e.g. add an employ
 handle them one at a time and wait for each confirmation before proposing the next.
 When you add an item that belongs to a person, ALWAYS set assignedTo to that person's exact name —
 never leave it out and never assign it to yourself or the admin. Deleting is not available.
+
+You can also EXPORT the inventory to Excel: when the user asks to export/download to Excel (or "to a
+spreadsheet"), call export_excel — pass a branch name to export just that branch, or omit it for all
+branches. The download happens in the user's browser; you do not need to list the data first.
+
 Be concise, use short markdown tables for lists, and always respond with text.`;
 
 interface ChatMessage {
@@ -123,6 +130,25 @@ export async function POST(req: Request) {
       messages.push(msg);
 
       if (msg.tool_calls && msg.tool_calls.length > 0) {
+        // A client action (e.g. Excel export) → hand it to the UI to run.
+        const actionCall = msg.tool_calls.find((c) => ACTION_TOOL_NAMES.has(c.function.name));
+        if (actionCall) {
+          let args: Record<string, unknown> = {};
+          try {
+            args = JSON.parse(actionCall.function.arguments || '{}');
+          } catch {
+            /* leave empty */
+          }
+          const branch = typeof args.branch === 'string' && args.branch.trim() ? args.branch.trim() : null;
+          return NextResponse.json({
+            reply:
+              (msg.content ?? '').trim() ||
+              (branch ? `Exporting ${branch} to Excel…` : 'Exporting the inventory to Excel…'),
+            action: { type: 'export_excel', branch },
+            model: candidates[modelIdx],
+          });
+        }
+
         // A write proposal → stop and ask the user to confirm (don't execute).
         const writeCall = msg.tool_calls.find((c) => WRITE_TOOL_NAMES.has(c.function.name));
         if (writeCall) {

@@ -6,6 +6,7 @@ import ReactMarkdown, { type Components } from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import { Bot, Send, User, Sparkles, ArrowUpRight } from 'lucide-react';
 import { useData } from './DataProvider';
+import { exportInventoryXlsx } from '@/lib/export';
 
 // Dark-theme styling for markdown in assistant replies (tables, lists, etc.).
 const MD: Components = {
@@ -59,7 +60,7 @@ const EXAMPLES = [
 ];
 
 export function AiChat() {
-  const { refresh } = useData();
+  const { refresh, items, branches } = useData();
   const [messages, setMessages] = useState<Msg[]>([]);
   const [input, setInput] = useState('');
   const [loading, setLoading] = useState(false);
@@ -108,6 +109,36 @@ export function AiChat() {
       const data = await res.json();
       if (!res.ok) {
         setError(data?.error ?? 'Something went wrong.');
+      } else if (data.action?.type === 'export_excel') {
+        // Same download the "Export Excel" button produces, optionally one branch.
+        const branchName: string | null = data.action.branch ?? null;
+        let exItems = items;
+        let exBranches = branches;
+        if (branchName) {
+          const b = branches.find((x) => x.name.toLowerCase() === branchName.toLowerCase());
+          if (b) {
+            exBranches = [b];
+            exItems = items.filter((i) => i.branch_id === b.id);
+          }
+        }
+        let ok = true;
+        try {
+          await exportInventoryXlsx({ items: exItems, branches: exBranches });
+        } catch {
+          ok = false;
+        }
+        setMessages((m) => [
+          ...m,
+          {
+            role: 'assistant',
+            content: ok
+              ? branchName
+                ? `Exported **${branchName}** to Excel — check your downloads. ⬇`
+                : 'Exported all branches to Excel — check your downloads. ⬇'
+              : 'Sorry — the Excel export failed.',
+            model: data.model,
+          },
+        ]);
       } else {
         setMessages((m) => [
           ...m,

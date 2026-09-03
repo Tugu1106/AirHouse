@@ -298,6 +298,33 @@ export const AI_WRITE_TOOLS = [
 
 export const WRITE_TOOL_NAMES = new Set<string>(AI_WRITE_TOOLS.map((t) => t.function.name));
 
+// --- Action tools -----------------------------------------------------------
+// These trigger a CLIENT-side action (a browser download) rather than a DB read
+// or write. The chat route detects the call and hands the action to the UI,
+// which runs the exact same code as the on-screen button — no confirm needed
+// (nothing is changed).
+export const AI_ACTION_TOOLS = [
+  {
+    type: 'function',
+    function: {
+      name: 'export_excel',
+      description:
+        'Export the inventory to an Excel (.xlsx) file — identical to the on-screen "Export Excel" button (an "All" sheet plus one sheet per branch). Optionally limit to a single branch by name; omit branch to export everything.',
+      parameters: {
+        type: 'object',
+        properties: {
+          branch: {
+            type: 'string',
+            description: 'Branch name to export (optional; omit to export all branches)',
+          },
+        },
+      },
+    },
+  },
+] as const;
+
+export const ACTION_TOOL_NAMES = new Set<string>(AI_ACTION_TOOLS.map((t) => t.function.name));
+
 /** A human-readable summary of a proposed write, shown on the confirm card. */
 export function summarizeWrite(name: string, a: Args): string {
   const g = (k: string) => (a[k] == null || a[k] === '' ? '' : String(a[k]));
