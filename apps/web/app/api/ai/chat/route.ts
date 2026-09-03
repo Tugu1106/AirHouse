@@ -20,6 +20,10 @@ add an employee, add an item, or transfer an item. When the user asks for a chan
 tool with your best arguments — the app will ask the user to CONFIRM before it actually runs, so it is
 safe to propose. Never invent data; use the read tools first to resolve branch/employee names if unsure.
 If a request is ambiguous or missing required info, ask a short clarifying question instead of guessing.
+Do ONE change per turn: if the user asks for several changes (e.g. add an employee AND add their
+laptop), handle them one at a time and wait for each confirmation before proposing the next.
+When you add an item that belongs to a person, ALWAYS set assignedTo to that person's exact name —
+never leave it out and never assign it to yourself or the admin.
 Deleting is not available. Be concise, and always respond with text.`;
 
 interface ChatMessage {

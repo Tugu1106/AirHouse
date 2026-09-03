@@ -282,7 +282,7 @@ export function summarizeWrite(name: string, a: Args): string {
     const label = getItemType(g('type'))?.label ?? g('type');
     return `Add ${label}${g('model') ? ` “${g('model')}”` : ''}${
       g('serial') ? ` (SN ${g('serial')})` : ''
-    } to ${g('branch')}${g('assignedTo') ? `, assigned to ${g('assignedTo')}` : ''}`;
+    } to ${g('branch')} — ${g('assignedTo') ? `assigned to ${g('assignedTo')}` : 'unassigned'}`;
   }
   if (name === 'transfer_item') {
     return `Transfer item SN ${g('serial')}${g('toEmployee') ? ` to ${g('toEmployee')}` : ' (unassign)'}${
