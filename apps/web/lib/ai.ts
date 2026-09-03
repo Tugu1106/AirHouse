@@ -104,16 +104,16 @@ async function freeToolModelIds(cfg: AiConfig): Promise<string[]> {
 }
 
 /**
- * Ordered models to try: pinned first, then the strongest live free+tool
- * models (preferred families, best first), capped so we only use good ones.
+ * Ordered models to try: pinned first, then live free+tool models with the
+ * strong families ranked first — but every free model is KEPT as a fallback,
+ * so if the "strong" ones aren't actually free right now we still reach a
+ * working one instead of failing.
  */
 export async function getCandidateModels(cfg: AiConfig): Promise<string[]> {
   const dynamic = await freeToolModelIds(cfg);
   const ranked = [...dynamic].sort((a, b) => familyRank(a) - familyRank(b));
-  const strong = ranked.filter((id) => familyRank(id) < PREFERRED_FAMILIES.length);
-  const primary = (strong.length ? strong : ranked).slice(0, 5);
-  const list = [cfg.pinnedModel, ...primary, ...FALLBACK_MODELS].filter(Boolean) as string[];
-  return [...new Set(list)].slice(0, 7);
+  const list = [cfg.pinnedModel, ...ranked, ...FALLBACK_MODELS].filter(Boolean) as string[];
+  return [...new Set(list)].slice(0, 12);
 }
 
 // OpenAI-style tool schemas (OpenRouter is OpenAI-compatible). Read-only.
