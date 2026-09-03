@@ -46,6 +46,7 @@ const COMPUTER_FIELDS: ItemTypeField[] = [
 // Mice and keyboards share the same fields.
 const INPUT_DEVICE_FIELDS: ItemTypeField[] = [
   { key: 'model', label: 'Model name', type: 'text', required: true },
+  { key: 'serial', label: 'Serial number', type: 'text', hideWhenEmpty: true },
   { key: 'condition', label: 'Condition', type: 'select', options: ['new', 'old'] },
   { key: 'wiring', label: 'Wiring', type: 'select', options: ['wired', 'wireless'] },
   { key: 'color', label: 'Color', type: 'select', options: ['white', 'black'] },
@@ -70,6 +71,7 @@ export const ITEM_TYPES: ItemTypeDef[] = [
     label: 'Printer',
     fields: [
       { key: 'model', label: 'Model name', type: 'text', required: true },
+      { key: 'serial', label: 'Serial number', type: 'text' },
       { key: 'ink_type', label: 'Ink type', type: 'select', options: ['laser', 'color'] },
       { key: 'connection', label: 'Connection', type: 'select', options: ['usb', 'lan', 'wifi'] },
     ],
