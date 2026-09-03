@@ -32,15 +32,23 @@ export async function getCurrentUserEmail(): Promise<string | null> {
   return user?.email ?? null;
 }
 
+// --- roles -----------------------------------------------------------------
+
+/** Actor context for an admin (level-2 or master), or throw. Gate every
+ *  admin-only write with this so a worker session can never invoke it. */
+export async function requireAdmin(): Promise<ActorContext> {
+  const user = await getCurrentUser();
+  if (!user || user.role !== 'admin') throw new Error('Admins only.');
+  return { actorId: user.id };
+}
+
 // --- master admin ----------------------------------------------------------
-// One designated account (by email) may manage other admins. Everyone else with
+// Exactly one account (by email) may manage other admins. Everyone else with
 // role='admin' is a level-2 admin: full access except the Admins page/actions.
-// Defaults to the seeded admin (ADMIN_EMAIL), overridable via MASTER_ADMIN_EMAIL.
-const MASTER_ADMIN_EMAIL = (
-  process.env.MASTER_ADMIN_EMAIL ??
-  process.env.ADMIN_EMAIL ??
-  'admin@airlink.mn'
-).toLowerCase();
+// This is a FIXED identity (admin@airlink.mn), deliberately NOT tied to
+// ADMIN_EMAIL — the seed email can be anything without moving who the master is.
+// Only an explicit MASTER_ADMIN_EMAIL override changes it.
+const MASTER_ADMIN_EMAIL = (process.env.MASTER_ADMIN_EMAIL ?? 'admin@airlink.mn').toLowerCase();
 
 export function isMasterEmail(email: string | null | undefined): boolean {
   return !!email && email.toLowerCase() === MASTER_ADMIN_EMAIL;

@@ -34,7 +34,7 @@ import {
   type ItemStatus,
   type EmployeeStatus,
 } from '@airlink/core';
-import { getRole, requireActor, requireMasterAdmin } from './auth';
+import { getRole, requireAdmin, requireMasterAdmin } from './auth';
 import { getActivityPage, getAllActivity, ACTIVITY_PAGE_SIZE, type ActivityRow } from './activity';
 import {
   getCurrentUser,
@@ -156,7 +156,7 @@ export async function signOutAction(): Promise<void> {
 
 export async function createEmployeeLoginAction(id: string, email: string): Promise<ActionResult> {
   try {
-    const ctx = await requireActor();
+    const ctx = await requireAdmin();
     const tempPassword = await provisionEmployeeLogin(id, email.trim(), ctx);
     return { ok: true, tempPassword };
   } catch (e) {
@@ -166,7 +166,7 @@ export async function createEmployeeLoginAction(id: string, email: string): Prom
 
 export async function resetEmployeeLoginAction(id: string): Promise<ActionResult> {
   try {
-    const ctx = await requireActor();
+    const ctx = await requireAdmin();
     const tempPassword = await resetEmployeeLogin(id, ctx);
     return { ok: true, tempPassword };
   } catch (e) {
@@ -226,7 +226,7 @@ export async function removeAdminAction(id: string): Promise<ActionResult> {
 
 export async function reorderItemsAction(orderedIds: string[]): Promise<ActionResult> {
   try {
-    await requireActor();
+    await requireAdmin();
     await reorderItems(orderedIds);
   } catch (e) {
     return { ok: false, error: errMessage(e) };
@@ -236,7 +236,7 @@ export async function reorderItemsAction(orderedIds: string[]): Promise<ActionRe
 
 export async function reorderEmployeesAction(orderedIds: string[]): Promise<ActionResult> {
   try {
-    await requireActor();
+    await requireAdmin();
     await reorderEmployees(orderedIds);
   } catch (e) {
     return { ok: false, error: errMessage(e) };
@@ -248,7 +248,7 @@ export async function reorderEmployeesAction(orderedIds: string[]): Promise<Acti
 
 export async function addItemAction(_prev: ActionResult | null, formData: FormData): Promise<ActionResult> {
   try {
-    const ctx = await requireActor();
+    const ctx = await requireAdmin();
     const type = String(formData.get('type') ?? '');
     const branch_id = String(formData.get('branch_id') ?? '');
     const assignedRaw = String(formData.get('assigned_to') ?? '');
@@ -276,7 +276,7 @@ export async function addItemAction(_prev: ActionResult | null, formData: FormDa
 
 export async function updateItemAction(_prev: ActionResult | null, formData: FormData): Promise<ActionResult> {
   try {
-    const ctx = await requireActor();
+    const ctx = await requireAdmin();
     const id = String(formData.get('id') ?? '');
     const type = String(formData.get('type') ?? '');
     const status = String(formData.get('status') ?? 'active') as ItemStatus;
@@ -292,7 +292,7 @@ export async function updateItemAction(_prev: ActionResult | null, formData: For
 
 export async function transferItemAction(_prev: ActionResult | null, formData: FormData): Promise<ActionResult> {
   try {
-    const ctx = await requireActor();
+    const ctx = await requireAdmin();
     const id = String(formData.get('id') ?? '');
     const toEmployeeRaw = formData.get('to_employee');
     const toBranchRaw = String(formData.get('to_branch') ?? '');
@@ -313,7 +313,7 @@ export async function transferItemAction(_prev: ActionResult | null, formData: F
 
 export async function softDeleteItemAction(id: string): Promise<ActionResult> {
   try {
-    const ctx = await requireActor();
+    const ctx = await requireAdmin();
     if (id) await softDeleteItem(id, ctx);
   } catch (e) {
     return { ok: false, error: errMessage(e) };
@@ -323,7 +323,7 @@ export async function softDeleteItemAction(id: string): Promise<ActionResult> {
 
 export async function restoreItemAction(id: string): Promise<ActionResult> {
   try {
-    const ctx = await requireActor();
+    const ctx = await requireAdmin();
     if (id) await restoreItem(id, ctx);
   } catch (e) {
     return { ok: false, error: errMessage(e) };
@@ -335,7 +335,7 @@ export async function restoreItemAction(id: string): Promise<ActionResult> {
 
 export async function createBranchAction(_prev: ActionResult | null, formData: FormData): Promise<ActionResult> {
   try {
-    const ctx = await requireActor();
+    const ctx = await requireAdmin();
     const name = String(formData.get('name') ?? '').trim();
     if (!name) return { ok: false, error: 'Branch name is required' };
     await createBranch(name, ctx);
@@ -351,7 +351,7 @@ export async function renameBranchAction(
   formData: FormData,
 ): Promise<ActionResult> {
   try {
-    const ctx = await requireActor();
+    const ctx = await requireAdmin();
     const id = String(formData.get('id') ?? '');
     const name = String(formData.get('name') ?? '').trim();
     if (!id) return { ok: false, error: 'Missing branch id' };
@@ -369,7 +369,7 @@ export async function renameBranchAction(
 
 export async function deleteBranchAction(id: string): Promise<ActionResult> {
   try {
-    const ctx = await requireActor();
+    const ctx = await requireAdmin();
     await deleteBranch(id, ctx);
   } catch (e) {
     return { ok: false, error: errMessage(e) };
@@ -379,7 +379,7 @@ export async function deleteBranchAction(id: string): Promise<ActionResult> {
 
 export async function setBranchHqAction(id: string): Promise<ActionResult> {
   try {
-    await requireActor();
+    await requireAdmin();
     await setBranchAsHq(id);
   } catch (e) {
     return { ok: false, error: errMessage(e) };
@@ -393,7 +393,7 @@ export async function setBranchPositionAction(
   y: number,
 ): Promise<ActionResult> {
   try {
-    await requireActor();
+    await requireAdmin();
     await updateBranchPosition(id, x, y);
   } catch (e) {
     return { ok: false, error: errMessage(e) };
@@ -403,7 +403,7 @@ export async function setBranchPositionAction(
 
 export async function createEmployeeAction(_prev: ActionResult | null, formData: FormData): Promise<ActionResult> {
   try {
-    const ctx = await requireActor();
+    const ctx = await requireAdmin();
     const name = String(formData.get('name') ?? '').trim();
     const branchId = String(formData.get('branch_id') ?? '') || null;
     const email = String(formData.get('email') ?? '').trim() || null;
@@ -432,7 +432,7 @@ export async function createEmployeeAction(_prev: ActionResult | null, formData:
 
 export async function deleteEmployeeAction(id: string): Promise<ActionResult> {
   try {
-    const ctx = await requireActor();
+    const ctx = await requireAdmin();
     await deleteEmployee(id, ctx);
   } catch (e) {
     return { ok: false, error: errMessage(e) };
@@ -445,7 +445,7 @@ export async function updateEmployeeAction(
   formData: FormData,
 ): Promise<ActionResult> {
   try {
-    const ctx = await requireActor();
+    const ctx = await requireAdmin();
     const id = String(formData.get('id') ?? '');
     if (!id) return { ok: false, error: 'Missing employee id' };
     const branchRaw = formData.get('branch_id');
