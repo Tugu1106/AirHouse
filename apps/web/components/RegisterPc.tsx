@@ -2,9 +2,34 @@
 
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { Laptop } from 'lucide-react';
+import { Laptop, Download } from 'lucide-react';
 
 type Status = 'idle' | 'waiting' | 'ready' | 'saving' | 'done' | 'error';
+
+// Clipboard works only in a secure context (HTTPS); fall back for plain HTTP.
+async function copyText(text: string): Promise<boolean> {
+  try {
+    if (navigator.clipboard && window.isSecureContext) {
+      await navigator.clipboard.writeText(text);
+      return true;
+    }
+  } catch {
+    /* fall through */
+  }
+  try {
+    const ta = document.createElement('textarea');
+    ta.value = text;
+    ta.style.position = 'fixed';
+    ta.style.opacity = '0';
+    document.body.appendChild(ta);
+    ta.select();
+    const ok = document.execCommand('copy');
+    ta.remove();
+    return ok;
+  } catch {
+    return false;
+  }
+}
 
 export function RegisterPc() {
   const router = useRouter();
@@ -82,13 +107,25 @@ export function RegisterPc() {
   };
 
   const copy = async () => {
-    try {
-      await navigator.clipboard.writeText(script);
+    const ok = await copyText(script);
+    if (ok) {
       setCopied(true);
       setTimeout(() => setCopied(false), 1500);
-    } catch {
-      /* user can select manually */
     }
+  };
+
+  const downloadBat = () => {
+    if (!token) return;
+    const bat = buildBat(token, window.location.origin);
+    const blob = new Blob([bat], { type: 'application/octet-stream' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = 'airhouse-scan.bat';
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    URL.revokeObjectURL(url);
   };
 
   const close = () => {
@@ -121,23 +158,49 @@ export function RegisterPc() {
             </div>
 
             {status === 'waiting' && (
-              <div className="space-y-3">
-                <p className="text-sm text-slate-400">
-                  1. Open <b className="text-slate-200">PowerShell</b> (press Start, type “PowerShell”,
-                  Enter). 2. Paste this and press Enter:
-                </p>
-                <div className="relative">
-                  <pre className="max-h-52 overflow-auto rounded-lg border border-slate-800 bg-slate-950 p-3 text-[11px] leading-relaxed text-slate-300">
-                    {script}
-                  </pre>
+              <div className="space-y-4">
+                <div className="space-y-2">
+                  <p className="text-sm text-slate-300">
+                    <b className="text-white">1.</b> Download the scanner and{' '}
+                    <b className="text-white">double-click it</b>:
+                  </p>
                   <button
-                    onClick={copy}
-                    className="absolute right-2 top-2 rounded border border-slate-700 bg-slate-900 px-2 py-1 text-xs text-slate-300 hover:bg-slate-800"
+                    onClick={downloadBat}
+                    className="btn-primary inline-flex w-full items-center justify-center gap-2"
                   >
-                    {copied ? 'Copied ✓' : 'Copy'}
+                    <Download className="h-4 w-4" /> Download scanner
                   </button>
+                  <p className="text-xs text-slate-500">
+                    A black window flashes for a second while it reads your PC — then it closes on
+                    its own. If Windows warns “unrecognized app”, click{' '}
+                    <b className="text-slate-300">More info → Run anyway</b>. Come back here after.
+                  </p>
                 </div>
-                <div className="flex items-center gap-2 text-sm text-slate-400">
+
+                <details className="rounded-lg border border-slate-800 bg-slate-950/50">
+                  <summary className="cursor-pointer select-none px-3 py-2 text-xs text-slate-400 hover:text-slate-200">
+                    Prefer to paste a command instead?
+                  </summary>
+                  <div className="space-y-2 border-t border-slate-800 p-3">
+                    <p className="text-xs text-slate-500">
+                      Open <b className="text-slate-300">PowerShell</b> (Start → type “PowerShell” →
+                      Enter), paste this, press Enter:
+                    </p>
+                    <div className="relative">
+                      <pre className="max-h-40 overflow-auto rounded-lg border border-slate-800 bg-slate-950 p-3 text-[11px] leading-relaxed text-slate-300">
+                        {script}
+                      </pre>
+                      <button
+                        onClick={copy}
+                        className="absolute right-2 top-2 rounded border border-slate-700 bg-slate-900 px-2 py-1 text-xs text-slate-300 hover:bg-slate-800"
+                      >
+                        {copied ? 'Copied ✓' : 'Copy'}
+                      </button>
+                    </div>
+                  </div>
+                </details>
+
+                <div className="flex items-center gap-2 border-t border-slate-800 pt-3 text-sm text-slate-400">
                   <span className="h-2 w-2 animate-pulse rounded-full bg-brand" />
                   Waiting for your PC to send its info…
                 </div>
@@ -195,17 +258,50 @@ function Row({ k, v }: { k: string; v: string }) {
 }
 
 function buildScript(token: string, origin: string): string {
-  return `$token = "${token}"
-$url = "${origin}/api/scan/submit"
-$cs = Get-CimInstance Win32_ComputerSystem
-$bios = Get-CimInstance Win32_BIOS
-$cpu = Get-CimInstance Win32_Processor | Select-Object -First 1
-$os = Get-CimInstance Win32_OperatingSystem
-$chassis = @(Get-CimInstance Win32_SystemEnclosure | Select-Object -ExpandProperty ChassisTypes)
-$isLaptop = ($chassis | Where-Object { $_ -in 8,9,10,11,12,14,18,21,30,31,32 }).Count -gt 0
-$ramGB = [math]::Round($cs.TotalPhysicalMemory / 1GB)
-$storage = (Get-CimInstance Win32_DiskDrive | ForEach-Object { "$([math]::Round($_.Size/1GB)) GB" }) -join ' + '
-$body = @{ token = $token; type = if ($isLaptop) { "laptop" } else { "desktop" }; specs = @{ system_name = $env:COMPUTERNAME; model = "$($cs.Manufacturer) $($cs.Model)".Trim(); serial = $bios.SerialNumber; cpu = $cpu.Name.Trim(); ram = "$ramGB GB"; storage = $storage; os = $os.Caption } } | ConvertTo-Json -Depth 4
-Invoke-RestMethod -Uri $url -Method Post -Body $body -ContentType "application/json" | Out-Null
-Write-Host "Sent to AirHouse. Return to your browser to confirm." -ForegroundColor Green`;
+  return `$ErrorActionPreference = "Stop"
+try {
+  $cs = Get-CimInstance Win32_ComputerSystem
+  $bios = Get-CimInstance Win32_BIOS
+  $cpu = Get-CimInstance Win32_Processor | Select-Object -First 1
+  $os = Get-CimInstance Win32_OperatingSystem
+  $chassis = @(Get-CimInstance Win32_SystemEnclosure | Select-Object -ExpandProperty ChassisTypes)
+  $isLaptop = ($chassis | Where-Object { $_ -in 8,9,10,11,12,14,18,21,30,31,32 }).Count -gt 0
+  $ramGB = [math]::Round($cs.TotalPhysicalMemory / 1GB)
+  $storage = (Get-CimInstance Win32_DiskDrive | ForEach-Object { "$([math]::Round($_.Size/1GB)) GB" }) -join ' + '
+  $body = @{ token = "${token}"; type = if ($isLaptop) { "laptop" } else { "desktop" }; specs = @{ system_name = $env:COMPUTERNAME; model = "$($cs.Manufacturer) $($cs.Model)".Trim(); serial = $bios.SerialNumber; cpu = $cpu.Name.Trim(); ram = "$ramGB GB"; storage = $storage; os = $os.Caption } } | ConvertTo-Json -Depth 4
+  Invoke-RestMethod -Uri "${origin}/api/scan/submit" -Method Post -Body $body -ContentType "application/json" | Out-Null
+  Write-Host "Success! Return to your browser and click Confirm." -ForegroundColor Green
+} catch {
+  Write-Host "Could not send to AirHouse: $($_.Exception.Message)" -ForegroundColor Red
+}`;
+}
+
+// Encode a PowerShell script as a base64 UTF-16LE string for -EncodedCommand.
+// This sidesteps all quote-escaping when embedding the script inside a .bat.
+function toEncodedCommand(script: string): string {
+  const buf = new Uint8Array(script.length * 2);
+  for (let i = 0; i < script.length; i++) {
+    const c = script.charCodeAt(i);
+    buf[i * 2] = c & 0xff;
+    buf[i * 2 + 1] = (c >> 8) & 0xff;
+  }
+  let bin = '';
+  for (let i = 0; i < buf.length; i++) bin += String.fromCharCode(buf[i]!);
+  return btoa(bin);
+}
+
+// A double-clickable .bat that runs the scan via PowerShell (execution-policy
+// bypassed, no admin needed). \r\n line endings so Windows parses it correctly.
+function buildBat(token: string, origin: string): string {
+  const enc = toEncodedCommand(buildScript(token, origin));
+  return [
+    '@echo off',
+    'title AirHouse PC Scan',
+    'echo Reading this PC and sending it to AirHouse...',
+    'echo.',
+    `powershell -NoProfile -ExecutionPolicy Bypass -EncodedCommand ${enc}`,
+    'echo.',
+    'timeout /t 4 >nul',
+    '',
+  ].join('\r\n');
 }
