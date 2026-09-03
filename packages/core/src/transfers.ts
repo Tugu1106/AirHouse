@@ -48,6 +48,7 @@ export async function transferItem(
     item_id: id,
     action: 'transfer',
     actor: ctx.actorId,
+    via: ctx.via,
     from_branch_id: changingBranch ? before.branch_id : null,
     to_branch_id: changingBranch ? after.branch_id : null,
     from_employee_id: changingEmployee ? before.assigned_to : null,

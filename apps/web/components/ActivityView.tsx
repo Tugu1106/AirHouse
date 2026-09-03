@@ -50,7 +50,8 @@ function terminalLine(r: ActivityRow): string {
   const [kind = '', ...rest] = r.target.split(' · ');
   const name = rest.join(' · ');
   const thing = name ? `${kind.toLowerCase()} ${name}` : kind.toLowerCase();
-  return `${ts(r.when)}  ${r.actor} ${verb} ${thing}${r.detail ? ` — ${r.detail}` : ''}`;
+  const aiTag = r.via === 'ai' ? ' [AI]' : '';
+  return `${ts(r.when)}  ${r.actor}${aiTag} ${verb} ${thing}${r.detail ? ` — ${r.detail}` : ''}`;
 }
 
 export function ActivityView({

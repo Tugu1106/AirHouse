@@ -20,6 +20,6 @@ export async function POST(req: Request) {
     return NextResponse.json({ ok: false, message: 'Not a valid action.' }, { status: 400 });
   }
 
-  const result = await runWriteTool(tool, args, { actorId: user.id });
+  const result = await runWriteTool(tool, args, { actorId: user.id, via: 'ai' });
   return NextResponse.json(result);
 }

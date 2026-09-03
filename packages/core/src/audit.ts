@@ -21,10 +21,13 @@ export interface AuditEntryInput {
   from_employee_id?: UUID | null;
   to_employee_id?: UUID | null;
   diff?: Record<string, unknown> | null;
+  /** Marks the source (e.g. 'ai'); folded into diff.via for the Log. */
+  via?: string;
 }
 
 export async function writeAudit(entry: AuditEntryInput): Promise<void> {
   const db = getDb();
+  const diff = entry.via ? { ...(entry.diff ?? {}), via: entry.via } : entry.diff;
   await db
     .insertInto('audit_log')
     .values({
@@ -37,7 +40,7 @@ export async function writeAudit(entry: AuditEntryInput): Promise<void> {
       to_branch_id: entry.to_branch_id ?? null,
       from_employee_id: entry.from_employee_id ?? null,
       to_employee_id: entry.to_employee_id ?? null,
-      diff: entry.diff ? JSON.stringify(entry.diff) : null,
+      diff: diff ? JSON.stringify(diff) : null,
     })
     .execute();
 }

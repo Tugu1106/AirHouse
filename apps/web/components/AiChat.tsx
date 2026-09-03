@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from 'react';
 import { Bot, Send, User, Sparkles } from 'lucide-react';
+import { useData } from './DataProvider';
 
 interface Pending {
   tool: string;
@@ -26,6 +27,7 @@ const EXAMPLES = [
 ];
 
 export function AiChat() {
+  const { refresh } = useData();
   const [messages, setMessages] = useState<Msg[]>([]);
   const [input, setInput] = useState('');
   const [loading, setLoading] = useState(false);
@@ -82,6 +84,7 @@ export function AiChat() {
         body: JSON.stringify({ tool: pending.tool, args: pending.args }),
       });
       const data = await res.json();
+      if (data.ok) void refresh(); // keep Inventory/Employees/Map in sync
       setMessages((m) => [
         ...m,
         { role: 'assistant', content: data.message || (data.ok ? 'Done.' : 'That didn’t work.') },

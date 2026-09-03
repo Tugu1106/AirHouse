@@ -20,6 +20,8 @@ export interface ActivityRow {
   target: string;
   targetHref?: string;
   detail: string;
+  /** 'ai' when the change was made through the AI assistant. */
+  via?: string;
 }
 
 function resolveRows(
@@ -82,6 +84,7 @@ function resolveRows(
       target: t.label,
       targetHref: t.href,
       detail: detail(e),
+      via: (e.diff as { via?: string } | null)?.via,
     };
   });
 }

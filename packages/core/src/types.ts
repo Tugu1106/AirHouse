@@ -106,4 +106,6 @@ export interface AuditLog {
  */
 export interface ActorContext {
   actorId: UUID;
+  /** Set to 'ai' when the action was performed via the AI assistant. */
+  via?: 'ai';
 }

@@ -35,6 +35,7 @@ export async function addItem(input: AddItemInput, ctx: ActorContext): Promise<I
     item_id: item.id,
     action: 'create',
     actor: ctx.actorId,
+    via: ctx.via,
     to_branch_id: item.branch_id,
     to_employee_id: item.assigned_to,
     diff: { created: { type: item.type, status: item.status, properties: item.properties } },
