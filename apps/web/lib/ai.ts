@@ -251,18 +251,23 @@ export const AI_WRITE_TOOLS = [
     function: {
       name: 'transfer_item',
       description:
-        'Transfer/reassign an item to a different employee and/or branch. Identify the item by its serial number.',
+        'Transfer/reassign an item to a different employee and/or branch. Identify the item by its model or system name (e.g. "MacBook", "PC-014"). If that name is not unique, also pass its current owner or branch to disambiguate.',
       parameters: {
         type: 'object',
         properties: {
-          serial: { type: 'string', description: 'serial number of the item to move' },
+          item: {
+            type: 'string',
+            description: 'model, system name, or serial that identifies the item',
+          },
+          currentOwner: { type: 'string', description: 'current owner name, to disambiguate (optional)' },
+          currentBranch: { type: 'string', description: 'current branch, to disambiguate (optional)' },
           toEmployee: {
             type: 'string',
             description: 'employee name to assign to (omit or empty to unassign)',
           },
           toBranch: { type: 'string', description: 'branch name to move it to (optional)' },
         },
-        required: ['serial'],
+        required: ['item'],
       },
     },
   },
@@ -285,9 +290,9 @@ export function summarizeWrite(name: string, a: Args): string {
     } to ${g('branch')} — ${g('assignedTo') ? `assigned to ${g('assignedTo')}` : 'unassigned'}`;
   }
   if (name === 'transfer_item') {
-    return `Transfer item SN ${g('serial')}${g('toEmployee') ? ` to ${g('toEmployee')}` : ' (unassign)'}${
-      g('toBranch') ? `, branch → ${g('toBranch')}` : ''
-    }`;
+    return `Transfer ${g('item')}${g('currentOwner') ? ` (from ${g('currentOwner')})` : ''}${
+      g('toEmployee') ? ` to ${g('toEmployee')}` : ' (unassign)'
+    }${g('toBranch') ? `, branch → ${g('toBranch')}` : ''}`;
   }
   return `Run ${name}`;
 }
@@ -346,14 +351,22 @@ export async function runWriteTool(
     }
 
     if (name === 'transfer_item') {
-      const serial = s(args.serial) ?? '';
-      const found = await listItems({ search: serial });
-      const exact = found.filter(
-        (i) => String(i.properties?.serial ?? '').toLowerCase() === serial.toLowerCase(),
-      );
-      const pick = exact.length ? exact : found;
-      if (pick.length === 0) return { ok: false, message: `No item found with serial “${serial}”.` };
-      if (pick.length > 1) return { ok: false, message: `Several items match “${serial}” — be more specific.` };
+      const term = s(args.item) ?? '';
+      let pick = await listItems({ search: term });
+      const owner = s(args.currentOwner);
+      if (owner) {
+        pick = pick.filter((i) => (i.assignee?.name ?? '').toLowerCase() === owner.toLowerCase());
+      }
+      const curBranch = s(args.currentBranch);
+      if (curBranch) {
+        pick = pick.filter((i) => (i.branch?.name ?? '').toLowerCase() === curBranch.toLowerCase());
+      }
+      if (pick.length === 0) return { ok: false, message: `No item matching “${term}”.` };
+      if (pick.length > 1)
+        return {
+          ok: false,
+          message: `Several items match “${term}” — say the current owner or branch to pick one.`,
+        };
       const item = pick[0]!;
       const input: { toEmployeeId?: string | null; toBranchId?: string } = {};
       const toBranch = s(args.toBranch);
