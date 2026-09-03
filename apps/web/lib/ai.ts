@@ -2,7 +2,17 @@
 // Configure with env: AI_API_KEY (required), AI_API_URL, AI_MODEL.
 // Read-only for now: the tools only list/search data, never modify it.
 
-import { listBranches, listEmployees, listItems, listItemTypes } from '@airlink/core';
+import {
+  listBranches,
+  listEmployees,
+  listItems,
+  listItemTypes,
+  getItemType,
+  createEmployee,
+  addItem,
+  transferItem,
+  type ActorContext,
+} from '@airlink/core';
 
 export interface AiConfig {
   url: string;
@@ -178,5 +188,192 @@ export async function runTool(name: string, args: Args): Promise<unknown> {
 
     default:
       return { error: `Unknown tool: ${name}` };
+  }
+}
+
+// --- Write tools (require confirmation before they run) ---------------------
+
+export const AI_WRITE_TOOLS = [
+  {
+    type: 'function',
+    function: {
+      name: 'add_employee',
+      description: 'Create a new employee. Requires a name; branch/position/status optional.',
+      parameters: {
+        type: 'object',
+        properties: {
+          name: { type: 'string' },
+          branch: { type: 'string', description: 'branch name' },
+          position: {
+            type: 'string',
+            description: 'Developer, Ecommerce, HR manager, or Agent',
+          },
+          status: { type: 'string', description: 'active, newly_hired, on_leave, etc.' },
+          phone: { type: 'string' },
+        },
+        required: ['name'],
+      },
+    },
+  },
+  {
+    type: 'function',
+    function: {
+      name: 'add_item',
+      description: 'Add a new inventory item (asset) to a branch. Requires type and branch.',
+      parameters: {
+        type: 'object',
+        properties: {
+          type: {
+            type: 'string',
+            description: 'type key: desktop, laptop, monitor, mouse, keyboard, printer, cable, lan_switch',
+          },
+          branch: { type: 'string', description: 'branch name' },
+          assignedTo: { type: 'string', description: 'employee name to assign it to (optional)' },
+          model: { type: 'string' },
+          serial: { type: 'string' },
+          system_name: { type: 'string' },
+          cpu: { type: 'string' },
+          ram: { type: 'string' },
+          storage: { type: 'string' },
+          os: { type: 'string' },
+        },
+        required: ['type', 'branch'],
+      },
+    },
+  },
+  {
+    type: 'function',
+    function: {
+      name: 'transfer_item',
+      description:
+        'Transfer/reassign an item to a different employee and/or branch. Identify the item by its serial number.',
+      parameters: {
+        type: 'object',
+        properties: {
+          serial: { type: 'string', description: 'serial number of the item to move' },
+          toEmployee: {
+            type: 'string',
+            description: 'employee name to assign to (omit or empty to unassign)',
+          },
+          toBranch: { type: 'string', description: 'branch name to move it to (optional)' },
+        },
+        required: ['serial'],
+      },
+    },
+  },
+] as const;
+
+export const WRITE_TOOL_NAMES = new Set<string>(AI_WRITE_TOOLS.map((t) => t.function.name));
+
+/** A human-readable summary of a proposed write, shown on the confirm card. */
+export function summarizeWrite(name: string, a: Args): string {
+  const g = (k: string) => (a[k] == null || a[k] === '' ? '' : String(a[k]));
+  if (name === 'add_employee') {
+    return `Add employee “${g('name')}”${g('position') ? ` (${g('position')})` : ''}${
+      g('branch') ? ` to ${g('branch')}` : ''
+    }`;
+  }
+  if (name === 'add_item') {
+    const label = getItemType(g('type'))?.label ?? g('type');
+    return `Add ${label}${g('model') ? ` “${g('model')}”` : ''}${
+      g('serial') ? ` (SN ${g('serial')})` : ''
+    } to ${g('branch')}${g('assignedTo') ? `, assigned to ${g('assignedTo')}` : ''}`;
+  }
+  if (name === 'transfer_item') {
+    return `Transfer item SN ${g('serial')}${g('toEmployee') ? ` to ${g('toEmployee')}` : ' (unassign)'}${
+      g('toBranch') ? `, branch → ${g('toBranch')}` : ''
+    }`;
+  }
+  return `Run ${name}`;
+}
+
+/** Execute a confirmed write with the admin's actor context. */
+export async function runWriteTool(
+  name: string,
+  args: Args,
+  ctx: ActorContext,
+): Promise<{ ok: boolean; message: string }> {
+  const branches = await listBranches();
+  const branchByName = (n?: string) =>
+    n ? branches.find((b) => b.name.toLowerCase() === n.toLowerCase()) : undefined;
+
+  try {
+    if (name === 'add_employee') {
+      const branchName = s(args.branch);
+      const branch = branchByName(branchName);
+      if (branchName && !branch) return { ok: false, message: `No branch named “${branchName}”.` };
+      const emp = await createEmployee(
+        {
+          name: String(args.name),
+          branchId: branch?.id ?? null,
+          position: s(args.position) ?? null,
+          status: (s(args.status) as never) || undefined,
+          phone: s(args.phone) ?? null,
+        },
+        ctx,
+      );
+      return { ok: true, message: `✓ Added employee ${emp.name}.` };
+    }
+
+    if (name === 'add_item') {
+      const branch = branchByName(s(args.branch));
+      if (!branch) return { ok: false, message: `No branch named “${s(args.branch)}”.` };
+      const def = getItemType(String(args.type));
+      if (!def) return { ok: false, message: `Unknown item type “${s(args.type)}”.` };
+      let assignedTo: string | null = null;
+      const assignName = s(args.assignedTo);
+      if (assignName) {
+        const emps = await listEmployees(branch.id);
+        const emp = emps.find((e) => e.name.toLowerCase() === assignName.toLowerCase());
+        if (!emp) return { ok: false, message: `No employee “${assignName}” in ${branch.name}.` };
+        assignedTo = emp.id;
+      }
+      const props: Record<string, string> = {};
+      for (const k of ['model', 'serial', 'system_name', 'cpu', 'ram', 'storage', 'os']) {
+        const v = s(args[k]);
+        if (v) props[k] = v;
+      }
+      await addItem(
+        { type: def.key, branch_id: branch.id, assigned_to: assignedTo, status: 'active', properties: props },
+        ctx,
+      );
+      return { ok: true, message: `✓ Added ${def.label} to ${branch.name}.` };
+    }
+
+    if (name === 'transfer_item') {
+      const serial = s(args.serial) ?? '';
+      const found = await listItems({ search: serial });
+      const exact = found.filter(
+        (i) => String(i.properties?.serial ?? '').toLowerCase() === serial.toLowerCase(),
+      );
+      const pick = exact.length ? exact : found;
+      if (pick.length === 0) return { ok: false, message: `No item found with serial “${serial}”.` };
+      if (pick.length > 1) return { ok: false, message: `Several items match “${serial}” — be more specific.` };
+      const item = pick[0]!;
+      const input: { toEmployeeId?: string | null; toBranchId?: string } = {};
+      const toBranch = s(args.toBranch);
+      if (toBranch) {
+        const b = branchByName(toBranch);
+        if (!b) return { ok: false, message: `No branch named “${toBranch}”.` };
+        input.toBranchId = b.id;
+      }
+      if ('toEmployee' in args) {
+        const toEmp = s(args.toEmployee);
+        if (toEmp) {
+          const emps = await listEmployees();
+          const emp = emps.find((e) => e.name.toLowerCase() === toEmp.toLowerCase());
+          if (!emp) return { ok: false, message: `No employee named “${toEmp}”.` };
+          input.toEmployeeId = emp.id;
+        } else {
+          input.toEmployeeId = null;
+        }
+      }
+      await transferItem(item.id, input, ctx);
+      return { ok: true, message: `✓ Transferred ${getItemType(item.type)?.label ?? item.type}.` };
+    }
+
+    return { ok: false, message: `Unknown action: ${name}.` };
+  } catch (e) {
+    return { ok: false, message: e instanceof Error ? e.message : 'Action failed.' };
   }
 }

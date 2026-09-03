@@ -1,17 +1,26 @@
 import { NextResponse } from 'next/server';
 import { getCurrentUser } from '@/lib/session';
-import { getAiConfig, getCandidateModels, AI_TOOLS, runTool } from '@/lib/ai';
+import {
+  getAiConfig,
+  getCandidateModels,
+  AI_TOOLS,
+  AI_WRITE_TOOLS,
+  WRITE_TOOL_NAMES,
+  summarizeWrite,
+  runTool,
+} from '@/lib/ai';
+
+const ALL_TOOLS = [...AI_TOOLS, ...AI_WRITE_TOOLS];
 
 export const dynamic = 'force-dynamic';
 
 const SYSTEM = `You are AirHouse Assistant, a helper inside an internal IT asset tracker for Airlink.
-Answer the admin's questions about inventory items, employees, and branches.
-Always use the tools to look up real data before answering — never guess or invent details.
-Be concise and factual; use short lists or a sentence, not walls of text.
-You can only READ data right now — you cannot add, edit, transfer, or delete anything.
-IMPORTANT: If the user asks you to add, edit, transfer, or delete something, never reply with
-an empty message. Clearly tell them you can only read data at the moment and can't make changes
-yet, then offer to look something up instead. Always respond with text.`;
+You can look up data (branches, employees, items) with the read tools, and you can PROPOSE changes:
+add an employee, add an item, or transfer an item. When the user asks for a change, call the matching
+tool with your best arguments — the app will ask the user to CONFIRM before it actually runs, so it is
+safe to propose. Never invent data; use the read tools first to resolve branch/employee names if unsure.
+If a request is ambiguous or missing required info, ask a short clarifying question instead of guessing.
+Deleting is not available. Be concise, and always respond with text.`;
 
 interface ChatMessage {
   role: string;
@@ -78,7 +87,7 @@ export async function POST(req: Request) {
         body: JSON.stringify({
           model: candidates[modelIdx],
           messages,
-          tools: AI_TOOLS,
+          tools: ALL_TOOLS,
           tool_choice: 'auto',
         }),
       });
@@ -105,6 +114,22 @@ export async function POST(req: Request) {
       messages.push(msg);
 
       if (msg.tool_calls && msg.tool_calls.length > 0) {
+        // A write proposal → stop and ask the user to confirm (don't execute).
+        const writeCall = msg.tool_calls.find((c) => WRITE_TOOL_NAMES.has(c.function.name));
+        if (writeCall) {
+          let args: Record<string, unknown> = {};
+          try {
+            args = JSON.parse(writeCall.function.arguments || '{}');
+          } catch {
+            /* leave empty */
+          }
+          return NextResponse.json({
+            reply: (msg.content ?? '').trim() || 'Please confirm this change:',
+            pending: { tool: writeCall.function.name, args, summary: summarizeWrite(writeCall.function.name, args) },
+            model: candidates[modelIdx],
+          });
+        }
+
         for (const call of msg.tool_calls) {
           usedTools.push(call.function.name);
           let args: Record<string, unknown> = {};

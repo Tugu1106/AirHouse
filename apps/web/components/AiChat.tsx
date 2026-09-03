@@ -3,11 +3,19 @@
 import { useEffect, useRef, useState } from 'react';
 import { Bot, Send, User, Sparkles } from 'lucide-react';
 
+interface Pending {
+  tool: string;
+  args: Record<string, unknown>;
+  summary: string;
+}
+
 interface Msg {
   role: 'user' | 'assistant';
   content: string;
   tools?: string[];
   model?: string;
+  pending?: Pending;
+  resolved?: boolean;
 }
 
 const EXAMPLES = [
@@ -48,7 +56,13 @@ export function AiChat() {
       } else {
         setMessages((m) => [
           ...m,
-          { role: 'assistant', content: data.reply || '(no answer)', tools: data.tools, model: data.model },
+          {
+            role: 'assistant',
+            content: data.reply || '(no answer)',
+            tools: data.tools,
+            model: data.model,
+            pending: data.pending,
+          },
         ]);
       }
     } catch {
@@ -56,6 +70,35 @@ export function AiChat() {
     } finally {
       setLoading(false);
     }
+  };
+
+  const confirmPending = async (idx: number, pending: Pending) => {
+    setMessages((m) => m.map((x, i) => (i === idx ? { ...x, resolved: true } : x)));
+    setLoading(true);
+    try {
+      const res = await fetch('/api/ai/execute', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ tool: pending.tool, args: pending.args }),
+      });
+      const data = await res.json();
+      setMessages((m) => [
+        ...m,
+        { role: 'assistant', content: data.message || (data.ok ? 'Done.' : 'That didn’t work.') },
+      ]);
+    } catch {
+      setMessages((m) => [...m, { role: 'assistant', content: 'Could not run that action.' }]);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const cancelPending = (idx: number) => {
+    setMessages((m) =>
+      m
+        .map((x, i) => (i === idx ? { ...x, resolved: true } : x))
+        .concat({ role: 'assistant', content: 'Cancelled — nothing was changed.' }),
+    );
   };
 
   return (
@@ -114,6 +157,25 @@ export function AiChat() {
               >
                 {m.content}
               </div>
+              {m.pending && !m.resolved && (
+                <div className="mt-2 rounded-lg border border-amber-500/30 bg-amber-500/10 p-3 text-left">
+                  <div className="text-xs font-medium text-amber-200">{m.pending.summary}</div>
+                  <div className="mt-2 flex gap-2">
+                    <button
+                      onClick={() => confirmPending(i, m.pending!)}
+                      className="rounded-md bg-brand px-3 py-1.5 text-xs font-medium text-white transition hover:bg-brand-light"
+                    >
+                      Confirm
+                    </button>
+                    <button
+                      onClick={() => cancelPending(i)}
+                      className="rounded-md border border-slate-700 px-3 py-1.5 text-xs text-slate-300 transition hover:bg-slate-800"
+                    >
+                      Cancel
+                    </button>
+                  </div>
+                </div>
+              )}
               {(m.tools?.length || m.model) && (
                 <div className="mt-1 text-[11px] text-slate-600">
                   {m.tools?.length ? `looked up: ${m.tools.join(', ')}` : ''}
