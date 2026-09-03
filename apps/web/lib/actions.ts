@@ -462,6 +462,18 @@ export async function deleteEmployeeAction(id: string): Promise<ActionResult> {
   return { ok: true };
 }
 
+/** Delete many employees at once (Select mode). Each unassigns items + removes
+ *  their login and is logged individually, exactly like a single delete. */
+export async function bulkDeleteEmployeesAction(ids: string[]): Promise<ActionResult> {
+  try {
+    const ctx = await requireAdmin();
+    for (const id of ids) if (id) await deleteEmployee(id, ctx);
+  } catch (e) {
+    return { ok: false, error: errMessage(e) };
+  }
+  return { ok: true };
+}
+
 export async function updateEmployeeAction(
   _prev: ActionResult | null,
   formData: FormData,

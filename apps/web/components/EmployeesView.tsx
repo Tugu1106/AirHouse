@@ -34,6 +34,7 @@ import {
   createEmployeeAction,
   updateEmployeeAction,
   reorderEmployeesAction,
+  bulkDeleteEmployeesAction,
   type ActionResult,
 } from '@/lib/actions';
 
@@ -78,6 +79,12 @@ export function EmployeesView() {
   const [login, setLogin] = useState('');
   const [sort, setSort] = useState<'name' | 'custom'>('name');
   const [loginStatus, setLoginStatus] = useState<Record<string, { signedIn: boolean }> | null>(null);
+
+  // --- Select mode (bulk delete) --------------------------------------------
+  const [selectMode, setSelectMode] = useState(false);
+  const [selected, setSelected] = useState<Set<string>>(new Set());
+  const [bulkBusy, setBulkBusy] = useState(false);
+  const [confirmBulk, setConfirmBulk] = useState(false);
 
   useEffect(() => {
     if (localStorage.getItem('employees_sort') === 'custom') setSort('custom');
@@ -136,7 +143,7 @@ export function EmployeesView() {
   };
 
   // --- Custom (manual) order via drag-and-drop (per branch; no other filters) --
-  const dndEnabled = sort === 'custom' && !status && !login && !search.trim();
+  const dndEnabled = sort === 'custom' && !status && !login && !search.trim() && !selectMode;
   const [dragOrder, setDragOrder] = useState<string[] | null>(null);
   const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 5 } }));
 
@@ -170,6 +177,43 @@ export function EmployeesView() {
     for (const arr of byBranch.values()) await reorderEmployeesAction(arr);
     await refresh();
     setDragOrder(null);
+  };
+
+  // --- Select-mode helpers ---------------------------------------------------
+  const allVisibleSelected =
+    orderedRows.length > 0 && orderedRows.every((r) => selected.has(r.id));
+
+  const toggleSelect = (id: string) =>
+    setSelected((s) => {
+      const next = new Set(s);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+
+  const toggleAll = () =>
+    setSelected((s) => {
+      const next = new Set(s);
+      if (allVisibleSelected) orderedRows.forEach((r) => next.delete(r.id));
+      else orderedRows.forEach((r) => next.add(r.id));
+      return next;
+    });
+
+  const exitSelect = () => {
+    setSelectMode(false);
+    setSelected(new Set());
+    setConfirmBulk(false);
+  };
+
+  const runBulkDelete = async () => {
+    setBulkBusy(true);
+    try {
+      await bulkDeleteEmployeesAction([...selected]);
+      await refresh();
+      exitSelect();
+    } finally {
+      setBulkBusy(false);
+    }
   };
 
   // The <td> cells for one employee row — shared by plain and draggable rows.
@@ -216,12 +260,24 @@ export function EmployeesView() {
             <span className="text-slate-500">{counts.none} no login</span>
           </p>
         </div>
-        <button
-          onClick={() => setModal({ mode: 'add' })}
-          className="rounded-md bg-brand px-4 py-2 text-sm font-medium text-white hover:bg-brand-dark"
-        >
-          + Add employee
-        </button>
+        <div className="flex items-center gap-2">
+          <button
+            onClick={() => (selectMode ? exitSelect() : setSelectMode(true))}
+            className={
+              selectMode
+                ? 'rounded-md border border-slate-600 bg-slate-700 px-4 py-2 text-sm font-medium text-white'
+                : 'btn-ghost'
+            }
+          >
+            {selectMode ? 'Cancel' : 'Select'}
+          </button>
+          <button
+            onClick={() => setModal({ mode: 'add' })}
+            className="rounded-md bg-brand px-4 py-2 text-sm font-medium text-white hover:bg-brand-dark"
+          >
+            + Add employee
+          </button>
+        </div>
       </div>
 
       <div className="flex flex-wrap items-end gap-3 rounded-lg border border-slate-800 bg-slate-900 p-3">
@@ -271,9 +327,30 @@ export function EmployeesView() {
         />
       </div>
 
-      {sort === 'custom' && !dndEnabled && (
+      {sort === 'custom' && !dndEnabled && !selectMode && (
         <div className="rounded-md border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-xs text-amber-200">
           Showing your saved custom order. Clear the filters/search to drag employees into a new order.
+        </div>
+      )}
+
+      {selectMode && (
+        <div className="flex flex-wrap items-center gap-3 rounded-lg border border-brand/40 bg-brand/10 px-4 py-2.5">
+          <span className="text-sm font-medium text-slate-100">{selected.size} selected</span>
+          {selected.size > 0 && (
+            <button
+              onClick={() => setSelected(new Set())}
+              className="text-xs text-slate-400 underline hover:text-slate-200"
+            >
+              Clear
+            </button>
+          )}
+          <button
+            onClick={() => setConfirmBulk(true)}
+            disabled={selected.size === 0 || bulkBusy}
+            className="ml-auto rounded-md bg-red-600 px-4 py-1.5 text-sm font-medium text-white hover:bg-red-500 disabled:opacity-50"
+          >
+            {bulkBusy ? 'Working…' : `Delete ${selected.size || ''}`.trim()}
+          </button>
         </div>
       )}
 
@@ -281,6 +358,17 @@ export function EmployeesView() {
         <table className="min-w-full divide-y divide-slate-800 text-sm">
           <thead className="bg-slate-800/50 text-left text-xs uppercase tracking-wide text-slate-400">
             <tr>
+              {selectMode && (
+                <th className="w-8 px-3 py-3">
+                  <input
+                    type="checkbox"
+                    aria-label="Select all"
+                    checked={allVisibleSelected}
+                    onChange={toggleAll}
+                    className="cursor-pointer accent-brand"
+                  />
+                </th>
+              )}
               {dndEnabled && <th className="w-8 px-2 py-3"></th>}
               <th className="px-4 py-3">Name</th>
               <th className="px-4 py-3">Position</th>
@@ -315,14 +403,34 @@ export function EmployeesView() {
             <tbody className="divide-y divide-slate-800">
               {orderedRows.length === 0 && (
                 <tr>
-                  <td colSpan={8} className="px-4 py-10 text-center text-slate-400">
+                  <td colSpan={selectMode ? 9 : 8} className="px-4 py-10 text-center text-slate-400">
                     No employees found.
                   </td>
                 </tr>
               )}
-              {orderedRows.map((e) => (
-                <tr key={e.id}>{renderCells(e)}</tr>
-              ))}
+              {orderedRows.map((e) => {
+                const isSel = selected.has(e.id);
+                return (
+                  <tr
+                    key={e.id}
+                    onClick={selectMode ? () => toggleSelect(e.id) : undefined}
+                    className={`${selectMode ? 'cursor-pointer' : ''} ${isSel ? 'bg-brand/10' : ''}`}
+                  >
+                    {selectMode && (
+                      <td className="w-8 px-3 py-3" onClick={(ev) => ev.stopPropagation()}>
+                        <input
+                          type="checkbox"
+                          aria-label="Select employee"
+                          checked={isSel}
+                          onChange={() => toggleSelect(e.id)}
+                          className="cursor-pointer accent-brand"
+                        />
+                      </td>
+                    )}
+                    {renderCells(e)}
+                  </tr>
+                );
+              })}
             </tbody>
           )}
         </table>
@@ -336,6 +444,37 @@ export function EmployeesView() {
       {modal?.mode === 'edit' && (
         <Dialog title="Edit employee" onClose={() => setModal(null)}>
           <EmployeeForm branches={branches} emp={modal.emp} onDone={done} />
+        </Dialog>
+      )}
+
+      {confirmBulk && (
+        <Dialog
+          title={`Delete ${selected.size} employee${selected.size === 1 ? '' : 's'}?`}
+          onClose={() => setConfirmBulk(false)}
+        >
+          <div className="space-y-4">
+            <p className="text-sm text-slate-300">
+              This removes the selected {selected.size === 1 ? 'person' : 'people'} from the roster.
+              Any items assigned to {selected.size === 1 ? 'them' : 'them'} are{' '}
+              <span className="font-medium text-slate-200">unassigned</span> (not deleted), and their
+              login {selected.size === 1 ? 'is' : 'logins are'} removed. Past history is kept.
+            </p>
+            <div className="flex justify-end gap-2">
+              <button
+                onClick={() => setConfirmBulk(false)}
+                className="rounded-md border border-slate-700 px-4 py-2 text-sm text-slate-300 hover:bg-slate-800"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={runBulkDelete}
+                disabled={bulkBusy}
+                className="rounded-md bg-red-600 px-4 py-2 text-sm font-medium text-white hover:bg-red-500 disabled:opacity-50"
+              >
+                {bulkBusy ? 'Deleting…' : `Delete ${selected.size}`}
+              </button>
+            </div>
+          </div>
         </Dialog>
       )}
     </>
