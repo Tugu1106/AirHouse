@@ -28,6 +28,8 @@ import {
   updateItemAction,
   transferItemAction,
   reorderItemsAction,
+  bulkDeleteItemsAction,
+  bulkRestoreItemsAction,
   type ActionResult,
 } from '@/lib/actions';
 import { SubmitButton } from './SubmitButton';
@@ -48,6 +50,12 @@ function propertyValue(item: ItemWithRelations, key: string): string {
 export function ItemsView({ scopeBranchId }: { scopeBranchId?: string }) {
   const { items, branches, employees, refresh } = useData();
   const [modal, setModal] = useState<Modal>(null);
+
+  // --- Select mode (bulk delete / restore) ----------------------------------
+  const [selectMode, setSelectMode] = useState(false);
+  const [selected, setSelected] = useState<Set<string>>(new Set());
+  const [bulkBusy, setBulkBusy] = useState(false);
+  const [confirmBulk, setConfirmBulk] = useState(false);
 
   const [search, setSearch] = useState('');
   const [type, setType] = useState('');
@@ -130,7 +138,8 @@ export function ItemsView({ scopeBranchId }: { scopeBranchId?: string }) {
   // Only sensible on ONE branch with no filters/search, so a saved order stays
   // coherent. Otherwise "Custom" just displays the saved order without handles.
   const isCustom = sort === 'sort_order:asc';
-  const dndEnabled = isCustom && !type && !status && !assignee && !search.trim() && !showDeleted;
+  const dndEnabled =
+    isCustom && !type && !status && !assignee && !search.trim() && !showDeleted && !selectMode;
 
   const [dragOrder, setDragOrder] = useState<string[] | null>(null);
   const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 5 } }));
@@ -166,7 +175,56 @@ export function ItemsView({ scopeBranchId }: { scopeBranchId?: string }) {
     setDragOrder(null); // DataProvider now reflects the saved sort_order
   };
 
-  const cols = (scopeBranchId ? 6 : 7) + detailFields.length + (dndEnabled ? 1 : 0);
+  // --- Select-mode helpers ---------------------------------------------------
+  const allVisibleSelected =
+    orderedRows.length > 0 && orderedRows.every((r) => selected.has(r.id));
+
+  const toggleSelect = (id: string) =>
+    setSelected((s) => {
+      const next = new Set(s);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+
+  const toggleAll = () =>
+    setSelected((s) => {
+      const next = new Set(s);
+      if (allVisibleSelected) orderedRows.forEach((r) => next.delete(r.id));
+      else orderedRows.forEach((r) => next.add(r.id));
+      return next;
+    });
+
+  const exitSelect = () => {
+    setSelectMode(false);
+    setSelected(new Set());
+    setConfirmBulk(false);
+  };
+
+  const runBulkDelete = async () => {
+    setBulkBusy(true);
+    try {
+      await bulkDeleteItemsAction([...selected]);
+      await refresh();
+      exitSelect();
+    } finally {
+      setBulkBusy(false);
+    }
+  };
+
+  const runBulkRestore = async () => {
+    setBulkBusy(true);
+    try {
+      await bulkRestoreItemsAction([...selected]);
+      await refresh();
+      exitSelect();
+    } finally {
+      setBulkBusy(false);
+    }
+  };
+
+  const cols =
+    (scopeBranchId ? 6 : 7) + detailFields.length + (dndEnabled ? 1 : 0) + (selectMode ? 1 : 0);
 
   return (
     <div className="space-y-4">
@@ -266,6 +324,16 @@ export function ItemsView({ scopeBranchId }: { scopeBranchId?: string }) {
             🖨 Print QRs
           </Link>
           <button
+            onClick={() => (selectMode ? exitSelect() : setSelectMode(true))}
+            className={
+              selectMode
+                ? 'rounded-md border border-slate-600 bg-slate-700 px-4 py-2 text-sm font-medium text-white'
+                : 'btn-ghost'
+            }
+          >
+            {selectMode ? 'Cancel' : 'Select'}
+          </button>
+          <button
             onClick={() => setModal({ mode: 'add' })}
             className="rounded-md bg-brand px-4 py-2 text-sm font-medium text-white hover:bg-brand-dark"
           >
@@ -273,6 +341,41 @@ export function ItemsView({ scopeBranchId }: { scopeBranchId?: string }) {
           </button>
         </div>
       </div>
+
+      {/* Bulk action bar (Select mode) */}
+      {selectMode && (
+        <div className="flex flex-wrap items-center gap-3 rounded-lg border border-brand/40 bg-brand/10 px-4 py-2.5">
+          <span className="text-sm font-medium text-slate-100">
+            {selected.size} selected
+          </span>
+          {selected.size > 0 && (
+            <button
+              onClick={() => setSelected(new Set())}
+              className="text-xs text-slate-400 underline hover:text-slate-200"
+            >
+              Clear
+            </button>
+          )}
+          <div className="ml-auto flex items-center gap-2">
+            {showDeleted && (
+              <button
+                onClick={runBulkRestore}
+                disabled={selected.size === 0 || bulkBusy}
+                className="rounded-md border border-slate-600 px-3 py-1.5 text-sm font-medium text-slate-200 hover:bg-slate-800 disabled:opacity-50"
+              >
+                Restore
+              </button>
+            )}
+            <button
+              onClick={() => setConfirmBulk(true)}
+              disabled={selected.size === 0 || bulkBusy}
+              className="rounded-md bg-red-600 px-4 py-1.5 text-sm font-medium text-white hover:bg-red-500 disabled:opacity-50"
+            >
+              {bulkBusy ? 'Working…' : `Delete ${selected.size || ''}`.trim()}
+            </button>
+          </div>
+        </div>
+      )}
 
       {isCustom && !dndEnabled && (
         <div className="rounded-md border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-xs text-amber-200">
@@ -289,6 +392,17 @@ export function ItemsView({ scopeBranchId }: { scopeBranchId?: string }) {
         >
           <thead className="bg-slate-800/50 text-left text-xs uppercase tracking-wide text-slate-400">
             <tr>
+              {selectMode && (
+                <th className="w-8 px-3 py-3">
+                  <input
+                    type="checkbox"
+                    aria-label="Select all"
+                    checked={allVisibleSelected}
+                    onChange={toggleAll}
+                    className="cursor-pointer accent-brand"
+                  />
+                </th>
+              )}
               {dndEnabled && <th className="w-8 px-2 py-3"></th>}
               <th className="px-4 py-3">Type</th>
               <th className="px-4 py-3">System name</th>
@@ -332,11 +446,31 @@ export function ItemsView({ scopeBranchId }: { scopeBranchId?: string }) {
                   </td>
                 </tr>
               )}
-              {orderedRows.map((item) => (
-                <tr key={item.id} className={item.deleted_at ? 'bg-red-950/30' : undefined}>
-                  <ItemCells item={item} detailFields={detailFields} scoped={!!scopeBranchId} />
-                </tr>
-              ))}
+              {orderedRows.map((item) => {
+                const isSel = selected.has(item.id);
+                return (
+                  <tr
+                    key={item.id}
+                    onClick={selectMode ? () => toggleSelect(item.id) : undefined}
+                    className={`${item.deleted_at ? 'bg-red-950/30' : ''} ${
+                      selectMode ? 'cursor-pointer' : ''
+                    } ${isSel ? 'bg-brand/10' : ''}`}
+                  >
+                    {selectMode && (
+                      <td className="w-8 px-3 py-3" onClick={(e) => e.stopPropagation()}>
+                        <input
+                          type="checkbox"
+                          aria-label="Select item"
+                          checked={isSel}
+                          onChange={() => toggleSelect(item.id)}
+                          className="cursor-pointer accent-brand"
+                        />
+                      </td>
+                    )}
+                    <ItemCells item={item} detailFields={detailFields} scoped={!!scopeBranchId} />
+                  </tr>
+                );
+              })}
             </tbody>
           )}
         </table>
@@ -353,6 +487,33 @@ export function ItemsView({ scopeBranchId }: { scopeBranchId?: string }) {
               setModal(null);
             }}
           />
+        </Dialog>
+      )}
+
+      {confirmBulk && (
+        <Dialog title={`Delete ${selected.size} item${selected.size === 1 ? '' : 's'}?`} onClose={() => setConfirmBulk(false)}>
+          <div className="space-y-4">
+            <p className="text-sm text-slate-300">
+              This soft-deletes the selected item{selected.size === 1 ? '' : 's'}. You can bring{' '}
+              {selected.size === 1 ? 'it' : 'them'} back later with{' '}
+              <span className="font-medium text-slate-200">Show deleted → Restore</span>.
+            </p>
+            <div className="flex justify-end gap-2">
+              <button
+                onClick={() => setConfirmBulk(false)}
+                className="rounded-md border border-slate-700 px-4 py-2 text-sm text-slate-300 hover:bg-slate-800"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={runBulkDelete}
+                disabled={bulkBusy}
+                className="rounded-md bg-red-600 px-4 py-2 text-sm font-medium text-white hover:bg-red-500 disabled:opacity-50"
+              >
+                {bulkBusy ? 'Deleting…' : `Delete ${selected.size}`}
+              </button>
+            </div>
+          </div>
         </Dialog>
       )}
     </div>

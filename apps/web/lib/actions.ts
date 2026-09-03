@@ -331,6 +331,28 @@ export async function restoreItemAction(id: string): Promise<ActionResult> {
   return { ok: true };
 }
 
+/** Soft-delete many items at once (Select mode). Each is logged individually. */
+export async function bulkDeleteItemsAction(ids: string[]): Promise<ActionResult> {
+  try {
+    const ctx = await requireAdmin();
+    for (const id of ids) if (id) await softDeleteItem(id, ctx);
+  } catch (e) {
+    return { ok: false, error: errMessage(e) };
+  }
+  return { ok: true };
+}
+
+/** Restore many soft-deleted items at once (Select mode). */
+export async function bulkRestoreItemsAction(ids: string[]): Promise<ActionResult> {
+  try {
+    const ctx = await requireAdmin();
+    for (const id of ids) if (id) await restoreItem(id, ctx);
+  } catch (e) {
+    return { ok: false, error: errMessage(e) };
+  }
+  return { ok: true };
+}
+
 // --- branches / employees -------------------------------------------------
 
 export async function createBranchAction(_prev: ActionResult | null, formData: FormData): Promise<ActionResult> {
