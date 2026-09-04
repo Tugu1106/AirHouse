@@ -2,18 +2,10 @@
 
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { Laptop, Download, RefreshCw } from 'lucide-react';
+import { Laptop, Command, Download, RefreshCw } from 'lucide-react';
 
+type Platform = 'windows' | 'mac';
 type Status = 'idle' | 'waiting' | 'ready' | 'saving' | 'done' | 'error';
-
-// "just now" / "3 min ago" / "2 h ago" for the last-scan timestamp.
-function timeAgo(ms: number): string {
-  const s = Math.max(0, Math.round((Date.now() - ms) / 1000));
-  if (s < 30) return 'just now';
-  if (s < 90) return '1 min ago';
-  if (s < 3600) return `${Math.round(s / 60)} min ago`;
-  return `${Math.round(s / 3600)} h ago`;
-}
 
 // Clipboard works only in a secure context (HTTPS); fall back for plain HTTP.
 async function copyText(text: string): Promise<boolean> {
@@ -40,7 +32,18 @@ async function copyText(text: string): Promise<boolean> {
   }
 }
 
-export function RegisterPc() {
+// "just now" / "3 min ago" / "2 h ago" for the last-scan timestamp.
+function timeAgo(ms: number): string {
+  const s = Math.max(0, Math.round((Date.now() - ms) / 1000));
+  if (s < 30) return 'just now';
+  if (s < 90) return '1 min ago';
+  if (s < 3600) return `${Math.round(s / 60)} min ago`;
+  return `${Math.round(s / 3600)} h ago`;
+}
+
+const LABEL: Record<Platform, string> = { windows: 'Register this PC', mac: 'Register this Mac' };
+
+export function RegisterPc({ platform = 'windows' }: { platform?: Platform }) {
   const router = useRouter();
   const [open, setOpen] = useState(false);
   const [token, setToken] = useState<string | null>(null);
@@ -66,8 +69,7 @@ export function RegisterPc() {
         return;
       }
       setToken(data.token);
-      setScript(buildScript(data.token, window.location.origin));
-      // Same employee already scanned this session → skip straight to review.
+      setScript(buildScript(platform, data.token, window.location.origin));
       if (data.ready && data.specs) {
         setSpecs(data.specs);
         setType(data.type);
@@ -80,7 +82,7 @@ export function RegisterPc() {
     }
   };
 
-  // Poll for the PC's info while waiting.
+  // Poll for the device's info while waiting.
   useEffect(() => {
     if (status !== 'waiting' || !token) return;
     const id = setInterval(async () => {
@@ -132,7 +134,7 @@ export function RegisterPc() {
     }
   };
 
-  // Re-scan: forget the stored specs, re-download the scanner, wait for fresh data.
+  // Re-scan: forget the stored specs, then wait for the device to report again.
   const rescan = async () => {
     if (!token) return;
     try {
@@ -148,7 +150,7 @@ export function RegisterPc() {
     setScannedAt(null);
     setMessage('');
     setStatus('waiting');
-    downloadBat();
+    if (platform === 'windows') downloadBat();
   };
 
   const downloadBat = () => {
@@ -176,8 +178,9 @@ export function RegisterPc() {
 
   return (
     <>
-      <button onClick={start} className="btn-primary inline-flex items-center gap-2">
-        <Laptop className="h-4 w-4" /> Register my PC
+      <button onClick={start} className="btn-primary inline-flex w-full items-center justify-center gap-2">
+        {platform === 'mac' ? <Command className="h-4 w-4" /> : <Laptop className="h-4 w-4" />}
+        {LABEL[platform]}
       </button>
 
       {open && (
@@ -189,7 +192,9 @@ export function RegisterPc() {
         >
           <div className="animate-modal w-full max-w-lg rounded-2xl border border-slate-700/60 bg-slate-900 p-6 shadow-2xl">
             <div className="mb-4 flex items-center justify-between">
-              <h2 className="text-base font-semibold text-white">Register this PC</h2>
+              <h2 className="text-base font-semibold text-white">
+                {platform === 'mac' ? 'Register this Mac' : 'Register this PC'}
+              </h2>
               <button onClick={close} aria-label="Close" className="text-slate-400 hover:text-white">
                 ✕
               </button>
@@ -197,35 +202,15 @@ export function RegisterPc() {
 
             {status === 'waiting' && (
               <div className="space-y-4">
-                <div className="space-y-2">
-                  <p className="text-sm text-slate-300">
-                    <b className="text-white">1.</b> Download the scanner and{' '}
-                    <b className="text-white">double-click it</b>:
-                  </p>
-                  <button
-                    onClick={downloadBat}
-                    className="btn-primary inline-flex w-full items-center justify-center gap-2"
-                  >
-                    <Download className="h-4 w-4" /> Download scanner
-                  </button>
-                  <p className="text-xs text-slate-500">
-                    A black window flashes for a second while it reads your PC — then it closes on
-                    its own. If Windows warns “unrecognized app”, click{' '}
-                    <b className="text-slate-300">More info → Run anyway</b>. Come back here after.
-                  </p>
-                </div>
-
-                <details className="rounded-lg border border-slate-800 bg-slate-950/50">
-                  <summary className="cursor-pointer select-none px-3 py-2 text-xs text-slate-400 hover:text-slate-200">
-                    Prefer to paste a command instead?
-                  </summary>
-                  <div className="space-y-2 border-t border-slate-800 p-3">
-                    <p className="text-xs text-slate-500">
-                      Open <b className="text-slate-300">PowerShell</b> (Start → type “PowerShell” →
-                      Enter), paste this, press Enter:
+                {platform === 'mac' ? (
+                  <div className="space-y-2">
+                    <p className="text-sm text-slate-300">
+                      <b className="text-white">1.</b> Open <b className="text-white">Terminal</b>{' '}
+                      (press ⌘ + Space, type “Terminal”, Return). <b className="text-white">2.</b>{' '}
+                      Paste this and press Return:
                     </p>
                     <div className="relative">
-                      <pre className="max-h-40 overflow-auto rounded-lg border border-slate-800 bg-slate-950 p-3 text-[11px] leading-relaxed text-slate-300">
+                      <pre className="max-h-52 overflow-auto rounded-lg border border-slate-800 bg-slate-950 p-3 text-[11px] leading-relaxed text-slate-300">
                         {script}
                       </pre>
                       <button
@@ -236,11 +221,53 @@ export function RegisterPc() {
                       </button>
                     </div>
                   </div>
-                </details>
+                ) : (
+                  <>
+                    <div className="space-y-2">
+                      <p className="text-sm text-slate-300">
+                        <b className="text-white">1.</b> Download the scanner and{' '}
+                        <b className="text-white">double-click it</b>:
+                      </p>
+                      <button
+                        onClick={downloadBat}
+                        className="btn-primary inline-flex w-full items-center justify-center gap-2"
+                      >
+                        <Download className="h-4 w-4" /> Download scanner
+                      </button>
+                      <p className="text-xs text-slate-500">
+                        A black window flashes for a second while it reads your PC — then close it and
+                        come back. If Windows warns “unrecognized app”, click{' '}
+                        <b className="text-slate-300">More info → Run anyway</b>.
+                      </p>
+                    </div>
+                    <details className="rounded-lg border border-slate-800 bg-slate-950/50">
+                      <summary className="cursor-pointer select-none px-3 py-2 text-xs text-slate-400 hover:text-slate-200">
+                        Prefer to paste a command instead?
+                      </summary>
+                      <div className="space-y-2 border-t border-slate-800 p-3">
+                        <p className="text-xs text-slate-500">
+                          Open <b className="text-slate-300">PowerShell</b> (Start → “PowerShell” →
+                          Enter), paste this, press Enter:
+                        </p>
+                        <div className="relative">
+                          <pre className="max-h-40 overflow-auto rounded-lg border border-slate-800 bg-slate-950 p-3 text-[11px] leading-relaxed text-slate-300">
+                            {script}
+                          </pre>
+                          <button
+                            onClick={copy}
+                            className="absolute right-2 top-2 rounded border border-slate-700 bg-slate-900 px-2 py-1 text-xs text-slate-300 hover:bg-slate-800"
+                          >
+                            {copied ? 'Copied ✓' : 'Copy'}
+                          </button>
+                        </div>
+                      </div>
+                    </details>
+                  </>
+                )}
 
                 <div className="flex items-center gap-2 border-t border-slate-800 pt-3 text-sm text-slate-400">
                   <span className="h-2 w-2 animate-pulse rounded-full bg-brand" />
-                  Waiting for your PC to send its info…
+                  Waiting for your {platform === 'mac' ? 'Mac' : 'PC'} to send its info…
                 </div>
               </div>
             )}
@@ -249,13 +276,11 @@ export function RegisterPc() {
               <div className="space-y-3">
                 <div className="flex items-center justify-between">
                   <p className="text-sm font-medium text-slate-200">Last scan</p>
-                  <span className="text-xs text-slate-500">
-                    {scannedAt ? timeAgo(scannedAt) : ''}
-                  </span>
+                  <span className="text-xs text-slate-500">{scannedAt ? timeAgo(scannedAt) : ''}</span>
                 </div>
                 <p className="text-xs text-slate-500">
-                  These are the specs your PC reported. If they look right, register them — otherwise
-                  re-scan to read the PC again.
+                  These are the specs your {platform === 'mac' ? 'Mac' : 'PC'} reported. If they look
+                  right, register them — otherwise re-scan.
                 </p>
                 <dl className="divide-y divide-slate-800 rounded-lg border border-slate-800">
                   <Row k="Type" v={type ?? '—'} />
@@ -270,7 +295,7 @@ export function RegisterPc() {
                   onClick={rescan}
                   className="btn-ghost inline-flex w-full items-center justify-center gap-2"
                 >
-                  <RefreshCw className="h-4 w-4" /> Re-scan this PC
+                  <RefreshCw className="h-4 w-4" /> Re-scan
                 </button>
               </div>
             )}
@@ -310,7 +335,12 @@ function Row({ k, v }: { k: string; v: string }) {
   );
 }
 
-function buildScript(token: string, origin: string): string {
+function buildScript(platform: Platform, token: string, origin: string): string {
+  return platform === 'mac' ? buildMacScript(token, origin) : buildWinScript(token, origin);
+}
+
+// --- Windows (PowerShell) ---------------------------------------------------
+function buildWinScript(token: string, origin: string): string {
   return `$ErrorActionPreference = "Stop"
 try {
   $cs = Get-CimInstance Win32_ComputerSystem
@@ -343,7 +373,6 @@ try {
 }
 
 // Encode a PowerShell script as a base64 UTF-16LE string for -EncodedCommand.
-// This sidesteps all quote-escaping when embedding the script inside a .bat.
 function toEncodedCommand(script: string): string {
   const buf = new Uint8Array(script.length * 2);
   for (let i = 0; i < script.length; i++) {
@@ -356,10 +385,10 @@ function toEncodedCommand(script: string): string {
   return btoa(bin);
 }
 
-// A double-clickable .bat that runs the scan via PowerShell (execution-policy
-// bypassed, no admin needed). \r\n line endings so Windows parses it correctly.
+// A double-clickable .bat that runs the scan via PowerShell (execution policy
+// bypassed, no admin needed).
 function buildBat(token: string, origin: string): string {
-  const enc = toEncodedCommand(buildScript(token, origin));
+  const enc = toEncodedCommand(buildWinScript(token, origin));
   return [
     '@echo off',
     'title AirHouse PC Scan',
@@ -371,4 +400,28 @@ function buildBat(token: string, origin: string): string {
     'pause',
     '',
   ].join('\r\n');
+}
+
+// --- macOS (bash, paste into Terminal) --------------------------------------
+function buildMacScript(token: string, origin: string): string {
+  return `TOKEN="${token}"
+URL="${origin}/api/scan/submit"
+HW=$(system_profiler SPHardwareDataType 2>/dev/null)
+MODEL=$(echo "$HW" | awk -F': ' '/Model Name/{print $2; exit}')
+[ -z "$MODEL" ] && MODEL=$(sysctl -n hw.model)
+SERIAL=$(echo "$HW" | awk -F': ' '/Serial Number/{print $2; exit}')
+CPU=$(sysctl -n machdep.cpu.brand_string 2>/dev/null)
+[ -z "$CPU" ] && CPU=$(echo "$HW" | awk -F': ' '/Chip/{print $2; exit}')
+MEM="$(( $(sysctl -n hw.memsize) / 1073741824 )) GB"
+DISK="$(( $(df -k / | awk 'NR==2{print $2}') / 1048576 )) GB SSD"
+SYS=$(scutil --get ComputerName 2>/dev/null || hostname)
+OS="$(sw_vers -productName) $(sw_vers -productVersion)"
+case "$MODEL" in *MacBook*) TYPE="laptop";; *) TYPE="desktop";; esac
+printf '\\nThis Mac:\\n  Type:    %s\\n  System:  %s\\n  Model:   %s\\n  Serial:  %s\\n  CPU:     %s\\n  RAM:     %s\\n  Storage: %s\\n  OS:      %s\\n\\n' "$TYPE" "$SYS" "$MODEL" "$SERIAL" "$CPU" "$MEM" "$DISK" "$OS"
+BODY=$(printf '{"token":"%s","type":"%s","specs":{"system_name":"%s","model":"%s","serial":"%s","cpu":"%s","ram":"%s","storage":"%s","os":"%s"}}' "$TOKEN" "$TYPE" "$SYS" "$MODEL" "$SERIAL" "$CPU" "$MEM" "$DISK" "$OS")
+if curl -s -X POST "$URL" -H "Content-Type: application/json" -d "$BODY" >/dev/null; then
+  echo "Success! Return to your browser and click Confirm."
+else
+  echo "Could not send to AirHouse."
+fi`;
 }

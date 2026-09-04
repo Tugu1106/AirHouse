@@ -123,6 +123,24 @@ export default async function MePage() {
         </dl>
       </section>
 
+      {/* Register a device */}
+      <section className="panel p-5">
+        <h2 className="text-sm font-semibold text-slate-200">Add your computer</h2>
+        <p className="mt-1 text-xs text-slate-500">
+          Register the machine you’re using so IT can track it. Pick the one that matches your device.
+        </p>
+        <div className="mt-4 grid gap-4 sm:grid-cols-2">
+          <div>
+            <p className="mb-2 text-xs font-medium text-slate-400">On Windows:</p>
+            <RegisterPc platform="windows" />
+          </div>
+          <div>
+            <p className="mb-2 text-xs font-medium text-slate-400">On a Mac (iMac / MacBook):</p>
+            <RegisterPc platform="mac" />
+          </div>
+        </div>
+      </section>
+
       {/* Assigned items */}
       <section className="space-y-3">
         <div className="flex items-center justify-between px-1">
@@ -132,7 +150,6 @@ export default async function MePage() {
               {items.length}
             </span>
           </h2>
-          <RegisterPc />
         </div>
 
         {items.length === 0 ? (
