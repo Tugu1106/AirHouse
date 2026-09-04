@@ -320,7 +320,7 @@ try {
   $chassis = @(Get-CimInstance Win32_SystemEnclosure | Select-Object -ExpandProperty ChassisTypes)
   $isLaptop = ($chassis | Where-Object { $_ -in 8,9,10,11,12,14,18,21,30,31,32 }).Count -gt 0
   $ramGB = [math]::Round($cs.TotalPhysicalMemory / 1GB)
-  $storage = (Get-CimInstance Win32_DiskDrive | ForEach-Object { "$([math]::Round($_.Size/1GB)) GB" }) -join ' + '
+  $storage = (Get-PhysicalDisk | ForEach-Object { $m = $_.MediaType; if (-not $m -or $m -eq 'Unspecified') { $m = if ($_.BusType -eq 'NVMe') { 'SSD' } else { '' } }; ("{0} GB {1}" -f [math]::Round($_.Size / 1GB), $m).Trim() }) -join ' + '
   $type = if ($isLaptop) { "laptop" } else { "desktop" }
   $specs = @{ system_name = $env:COMPUTERNAME; model = "$($cs.Manufacturer) $($cs.Model)".Trim(); serial = $bios.SerialNumber; cpu = $cpu.Name.Trim(); ram = "$ramGB GB"; storage = $storage; os = $os.Caption }
   Write-Host ""
