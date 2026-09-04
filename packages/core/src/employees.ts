@@ -15,6 +15,7 @@ function toEmployee(row: Record<string, unknown>): Employee {
     active: row.active as boolean,
     phone: (row.phone as string | null) ?? null,
     position: (row.position as string | null) ?? null,
+    sector: (row.sector as string | null) ?? null,
     status: row.status as EmployeeStatus,
     email: (row.email as string | null) ?? null,
     user_id: (row.user_id as string | null) ?? null,
@@ -86,6 +87,7 @@ export interface CreateEmployeeInput {
   branchId?: UUID | null;
   phone?: string | null;
   position?: string | null;
+  sector?: string | null;
   status?: EmployeeStatus;
   email?: string | null;
 }
@@ -102,6 +104,7 @@ export async function createEmployee(
       branch_id: input.branchId ?? null,
       phone: input.phone ?? null,
       position: input.position ?? null,
+      sector: input.sector ?? null,
       status: input.status ?? 'active',
       email: input.email ?? null,
     })
@@ -157,6 +160,7 @@ export interface UpdateEmployeeInput {
   branchId?: UUID | null;
   phone?: string | null;
   position?: string | null;
+  sector?: string | null;
   status?: EmployeeStatus;
   email?: string | null;
 }
@@ -207,6 +211,7 @@ export async function updateEmployee(
   if (patch.branchId !== undefined) update.branch_id = patch.branchId;
   if (patch.phone !== undefined) update.phone = patch.phone;
   if (patch.position !== undefined) update.position = patch.position;
+  if (patch.sector !== undefined) update.sector = patch.sector;
   if (patch.email !== undefined) update.email = patch.email;
   if (patch.status !== undefined) {
     update.status = patch.status;

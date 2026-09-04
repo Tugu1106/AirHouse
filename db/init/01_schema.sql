@@ -31,6 +31,7 @@ create table if not exists employees (
   active     boolean not null default true,
   phone      text,
   position   text,
+  sector     text,                 -- department/sector (fixed dropdown in the UI)
   status     text not null default 'active',
   email      text,                 -- work/contact email (login email for workers)
   deleted_at timestamptz,          -- soft-delete; kept so item history resolves names

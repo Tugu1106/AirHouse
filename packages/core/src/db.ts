@@ -35,6 +35,7 @@ interface EmployeesTable {
   active: Generated<boolean>;
   phone: Nullable<string>;
   position: Nullable<string>;
+  sector: Nullable<string>;
   status: Generated<string>;
   email: Nullable<string>;
   deleted_at: Nullable<string>;

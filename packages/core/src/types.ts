@@ -43,6 +43,18 @@ export const EMPLOYEE_POSITIONS: { key: string; label: string }[] = [
 
 export const DEFAULT_POSITION = 'Agent';
 
+// Sectors / departments — a FIXED dropdown. Edit this one list to change the
+// options everywhere (register form, admin add/edit, filters).
+// TODO: replace these placeholders with Airlink's real sectors.
+export const EMPLOYEE_SECTORS: { key: string; label: string }[] = [
+  { key: 'Sales', label: 'Sales' },
+  { key: 'Operations', label: 'Operations' },
+  { key: 'Finance', label: 'Finance' },
+  { key: 'IT', label: 'IT' },
+  { key: 'HR', label: 'HR' },
+  { key: 'Marketing', label: 'Marketing' },
+];
+
 export interface Employee {
   id: UUID;
   name: string;
@@ -50,6 +62,8 @@ export interface Employee {
   active: boolean;
   phone: string | null;
   position: string | null;
+  /** Department/sector (fixed dropdown). */
+  sector: string | null;
   status: EmployeeStatus;
   /** Work email used for self-service login (null = no login). */
   email: string | null;

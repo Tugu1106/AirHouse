@@ -57,6 +57,75 @@ export async function verifyCredentials(email: string, password: string): Promis
   };
 }
 
+/**
+ * Self-registration: an employee creates their own account. Makes an employees
+ * row + a linked worker `users` row (password they chose, no forced reset).
+ * Returns the AuthUser so the caller can start a session. Open sign-up — any
+ * visitor may call it; email must be unique across users and employees.
+ */
+export async function registerWorker(input: {
+  name: string;
+  email: string;
+  password: string;
+  branchId: string | null;
+  sector: string | null;
+  position: string | null;
+  status: string;
+}): Promise<AuthUser> {
+  const db = getDb();
+  const name = input.name.trim();
+  const email = input.email.trim();
+  if (!name) throw new Error('Full name is required.');
+  if (!email) throw new Error('Email is required.');
+  if (input.password.length < 8) throw new Error('Password must be at least 8 characters.');
+
+  const takenUser = await db.selectFrom('users').select('id').where('email', 'ilike', email).executeTakeFirst();
+  if (takenUser) throw new Error('An account with this email already exists. Try signing in.');
+  const takenEmp = await db
+    .selectFrom('employees')
+    .select('id')
+    .where('email', 'ilike', email)
+    .where('deleted_at', 'is', null)
+    .executeTakeFirst();
+  if (takenEmp) throw new Error('An employee with this email already exists.');
+
+  const emp = await db
+    .insertInto('employees')
+    .values({
+      name,
+      branch_id: input.branchId,
+      sector: input.sector,
+      position: input.position,
+      status: input.status,
+      active: input.status !== 'fired',
+      email,
+    })
+    .returning(['id'])
+    .executeTakeFirstOrThrow();
+
+  const user = await db
+    .insertInto('users')
+    .values({
+      email,
+      password_hash: await hashPassword(input.password),
+      role: 'worker',
+      employee_id: emp.id,
+      must_reset: false,
+    })
+    .returning(['id'])
+    .executeTakeFirstOrThrow();
+
+  await writeAudit({
+    entity_type: 'employee',
+    entity_id: emp.id,
+    action: 'create',
+    actor: user.id, // self-registered — the new user is their own actor
+    diff: { name, self_registered: true },
+  });
+
+  return { id: user.id, email, role: 'worker', employee_id: emp.id, must_reset: false };
+}
+
 /** Create a server-side session; returns the token (cookie value) + expiry. */
 export async function createSession(
   userId: UUID,

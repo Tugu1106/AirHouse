@@ -6,6 +6,7 @@ import Link from 'next/link';
 import {
   EMPLOYEE_STATUSES,
   EMPLOYEE_POSITIONS,
+  EMPLOYEE_SECTORS,
   DEFAULT_POSITION,
   type EmployeeStatus,
 } from '@airlink/core/types';
@@ -30,7 +31,6 @@ import { useData } from './DataProvider';
 import { Dialog } from './ItemsView';
 import { Select } from './Select';
 import { SubmitButton } from './SubmitButton';
-import { CopyablePassword } from './CopyablePassword';
 import {
   createEmployeeAction,
   updateEmployeeAction,
@@ -54,32 +54,13 @@ const positionLabel = (p: string | null) =>
 
 type Modal = { mode: 'add' } | { mode: 'edit'; emp: Employee } | null;
 
-type LoginState = 'signed_in' | 'invited' | 'none';
-
-function loginStateOf(
-  emp: Employee,
-  statuses: Record<string, { signedIn: boolean }> | null,
-): LoginState {
-  if (!emp.user_id) return 'none';
-  if (statuses && statuses[emp.user_id]?.signedIn) return 'signed_in';
-  return 'invited';
-}
-
-const LOGIN_BADGE: Record<LoginState, { label: string; cls: string }> = {
-  signed_in: { label: 'Signed in', cls: 'bg-emerald-100 text-emerald-700' },
-  invited: { label: 'Invited', cls: 'bg-amber-100 text-amber-700' },
-  none: { label: 'No login', cls: 'bg-slate-200 text-slate-500' },
-};
-
 export function EmployeesView() {
   const { employees, branches, items, refresh } = useData();
   const [modal, setModal] = useState<Modal>(null);
   const [search, setSearch] = useState('');
   const [status, setStatus] = useState('');
   const [branchId, setBranchId] = useState('');
-  const [login, setLogin] = useState('');
   const [sort, setSort] = useState<'name' | 'custom'>('name');
-  const [loginStatus, setLoginStatus] = useState<Record<string, { signedIn: boolean }> | null>(null);
 
   // --- Select mode (bulk delete) --------------------------------------------
   const [selectMode, setSelectMode] = useState(false);
@@ -94,36 +75,17 @@ export function EmployeesView() {
     localStorage.setItem('employees_sort', sort);
   }, [sort]);
 
-  // Fetch sign-in status once (admin-only endpoint); badges fill in when it lands.
-  useEffect(() => {
-    let active = true;
-    fetch('/api/login-status', { cache: 'no-store' })
-      .then((r) => (r.ok ? r.json() : null))
-      .then((d) => active && setLoginStatus(d))
-      .catch(() => {});
-    return () => {
-      active = false;
-    };
-  }, []);
-
   const branchName = (id: string | null) => branches.find((b) => b.id === id)?.name ?? '—';
   const itemCount = (empId: string) => items.filter((i) => i.assigned_to === empId && !i.deleted_at).length;
-
-  const counts = useMemo(() => {
-    const c = { signed_in: 0, invited: 0, none: 0 };
-    for (const e of employees) c[loginStateOf(e, loginStatus)]++;
-    return c;
-  }, [employees, loginStatus]);
 
   const visible = useMemo(() => {
     let rows = employees;
     if (status) rows = rows.filter((e) => e.status === status);
     if (branchId) rows = rows.filter((e) => e.branch_id === branchId);
-    if (login) rows = rows.filter((e) => loginStateOf(e, loginStatus) === login);
     const term = search.trim().toLowerCase();
     if (term) {
       rows = rows.filter((e) =>
-        `${e.name} ${e.position ?? ''} ${e.phone ?? ''}`.toLowerCase().includes(term),
+        `${e.name} ${e.position ?? ''} ${e.sector ?? ''} ${e.phone ?? ''}`.toLowerCase().includes(term),
       );
     }
     return [...rows].sort((a, b) => {
@@ -136,7 +98,7 @@ export function EmployeesView() {
       }
       return a.name.localeCompare(b.name);
     });
-  }, [employees, status, branchId, login, loginStatus, search, sort, branches]);
+  }, [employees, status, branchId, search, sort, branches]);
 
   const done = async () => {
     await refresh();
@@ -144,7 +106,7 @@ export function EmployeesView() {
   };
 
   // --- Custom (manual) order via drag-and-drop (per branch; no other filters) --
-  const dndEnabled = sort === 'custom' && !status && !login && !search.trim() && !selectMode;
+  const dndEnabled = sort === 'custom' && !status && !search.trim() && !selectMode;
   const [dragOrder, setDragOrder] = useState<string[] | null>(null);
   const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 5 } }));
 
@@ -222,18 +184,13 @@ export function EmployeesView() {
     <>
       <td className="px-4 py-3 font-medium text-slate-200">{e.name}</td>
       <td className="px-4 py-3 text-slate-400">{positionLabel(e.position)}</td>
+      <td className="px-4 py-3 text-slate-400">{e.sector ?? '—'}</td>
       <td className="px-4 py-3 text-slate-400">{e.phone ?? '—'}</td>
       <td className="px-4 py-3 text-slate-400">{branchName(e.branch_id)}</td>
       <td className="px-4 py-3">
         <span className={`rounded px-2 py-0.5 text-xs font-medium ${STATUS_STYLES[e.status] ?? 'bg-slate-100 text-slate-400'}`}>
           {statusLabel(e.status)}
         </span>
-      </td>
-      <td className="px-4 py-3">
-        {(() => {
-          const b = LOGIN_BADGE[loginStateOf(e, loginStatus)];
-          return <span className={`rounded px-2 py-0.5 text-xs font-medium ${b.cls}`}>{b.label}</span>;
-        })()}
       </td>
       <td className="px-4 py-3 text-slate-400">{itemCount(e.id)}</td>
       <td className="px-4 py-3">
@@ -254,12 +211,7 @@ export function EmployeesView() {
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-xl font-semibold text-white">Employees</h1>
-          <p className="text-sm text-slate-400">
-            {employees.length} people ·{' '}
-            <span className="text-emerald-400">{counts.signed_in} signed in</span> ·{' '}
-            <span className="text-amber-400">{counts.invited} invited</span> ·{' '}
-            <span className="text-slate-500">{counts.none} no login</span>
-          </p>
+          <p className="text-sm text-slate-400">{employees.length} people</p>
         </div>
         <div className="flex items-center gap-2">
           <button
@@ -285,7 +237,7 @@ export function EmployeesView() {
         <input
           value={search}
           onChange={(e) => setSearch(e.target.value)}
-          placeholder="Search name, position, phone…"
+          placeholder="Search name, position, sector, phone…"
           className="w-56 rounded-md border border-slate-700 bg-slate-800 text-slate-100 placeholder-slate-500 px-2 py-1.5 text-sm"
         />
         <Select
@@ -304,17 +256,6 @@ export function EmployeesView() {
           options={[
             { value: '', label: 'All statuses' },
             ...EMPLOYEE_STATUSES.map((s) => ({ value: s.key, label: s.label })),
-          ]}
-        />
-        <Select
-          value={login}
-          onChange={setLogin}
-          className="w-40"
-          options={[
-            { value: '', label: 'Any login' },
-            { value: 'signed_in', label: 'Signed in' },
-            { value: 'invited', label: 'Invited (not yet)' },
-            { value: 'none', label: 'No login' },
           ]}
         />
         <Select
@@ -373,10 +314,10 @@ export function EmployeesView() {
               {dndEnabled && <th className="w-8 px-2 py-3"></th>}
               <th className="px-4 py-3">Name</th>
               <th className="px-4 py-3">Position</th>
+              <th className="px-4 py-3">Sector</th>
               <th className="px-4 py-3">Phone</th>
               <th className="px-4 py-3">Branch</th>
               <th className="px-4 py-3">Status</th>
-              <th className="px-4 py-3">Login</th>
               <th className="px-4 py-3">Items</th>
               <th className="px-4 py-3 text-right">Actions</th>
             </tr>
@@ -530,33 +471,9 @@ export function EmployeeForm({
   const { employees } = useData();
   const action = emp ? updateEmployeeAction : createEmployeeAction;
   const [state, formAction] = useActionState<ActionResult | null, FormData>(action, null);
-  const [createdTemp, setCreatedTemp] = useState<string | null>(null);
   useEffect(() => {
-    if (state?.ok) {
-      if (state.tempPassword) setCreatedTemp(state.tempPassword);
-      else onDone();
-    }
+    if (state?.ok) onDone();
   }, [state, onDone]);
-
-  if (createdTemp) {
-    return (
-      <div className="space-y-4">
-        <p className="text-sm text-slate-300">
-          Employee added and their login is ready. Share this <b>temporary password</b> with them —
-          they'll set their own on first sign-in:
-        </p>
-        <CopyablePassword value={createdTemp} big />
-        <p className="text-xs text-slate-500">
-          They sign in at this site with their work email + this password.
-        </p>
-        <div className="flex justify-end">
-          <button onClick={onDone} className="btn-primary">
-            Done
-          </button>
-        </div>
-      </div>
-    );
-  }
 
   return (
     <form action={formAction} className="space-y-4">
@@ -566,14 +483,6 @@ export function EmployeeForm({
           <label className="block text-sm font-medium text-slate-300">Name *</label>
           <input name="name" required defaultValue={emp?.name ?? ''} className="mt-1 w-full rounded-md border border-slate-700 bg-slate-800 text-slate-100 placeholder-slate-500 px-3 py-2 text-sm" />
         </div>
-        {!emp && (
-          <div className="col-span-2">
-            <label className="block text-sm font-medium text-slate-300">
-              Work email <span className="font-normal text-slate-500">(optional — enables their login)</span>
-            </label>
-            <input name="email" type="email" placeholder="worker@airlink.mn" className="mt-1 w-full rounded-md border border-slate-700 bg-slate-800 text-slate-100 placeholder-slate-500 px-3 py-2 text-sm" />
-          </div>
-        )}
         <div>
           <label className="block text-sm font-medium text-slate-300">Phone</label>
           <input name="phone" defaultValue={emp?.phone ?? ''} className="mt-1 w-full rounded-md border border-slate-700 bg-slate-800 text-slate-100 placeholder-slate-500 px-3 py-2 text-sm" />
@@ -590,6 +499,23 @@ export function EmployeeForm({
                 ? [{ value: emp.position, label: emp.position }]
                 : []),
               ...EMPLOYEE_POSITIONS.map((p) => ({ value: p.key, label: p.label })),
+            ]}
+          />
+        </div>
+        <div>
+          <label className="block text-sm font-medium text-slate-300">Sector</label>
+          <Select
+            name="sector"
+            defaultValue={emp?.sector ?? ''}
+            placeholder="—"
+            className="mt-1"
+            options={[
+              { value: '', label: '—' },
+              // keep an existing off-list sector (old data) selectable on edit
+              ...(emp?.sector && !EMPLOYEE_SECTORS.some((s) => s.key === emp.sector)
+                ? [{ value: emp.sector, label: emp.sector }]
+                : []),
+              ...EMPLOYEE_SECTORS.map((s) => ({ value: s.key, label: s.label })),
             ]}
           />
         </div>

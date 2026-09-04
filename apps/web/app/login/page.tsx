@@ -1,3 +1,4 @@
+import Link from 'next/link';
 import { LoginForm } from '@/components/LoginForm';
 import { getCurrentUser } from '@/lib/session';
 
@@ -19,6 +20,12 @@ export default async function LoginPage() {
           </p>
         )}
         <LoginForm />
+        <p className="mt-5 text-center text-xs text-slate-500">
+          New here?{' '}
+          <Link href="/register" className="text-brand-light underline">
+            Create an account
+          </Link>
+        </p>
       </div>
     </main>
   );

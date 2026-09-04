@@ -117,6 +117,7 @@ export default async function MePage() {
           <Detail label="Email" value={emp.email ?? '—'} />
           <Detail label="Phone" value={emp.phone ?? '—'} />
           <Detail label="Position" value={positionLabel(emp.position)} />
+          <Detail label="Sector" value={emp.sector ?? '—'} />
           <Detail label="Branch" value={homeBranch} />
           <Detail label="Status" value={statusLabel(emp.status)} />
         </dl>

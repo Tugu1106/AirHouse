@@ -28,6 +28,7 @@ import {
   createAdmin,
   removeAdmin,
   verifyCredentials,
+  registerWorker,
   createSession,
   setUserPassword,
   deleteSession,
@@ -96,6 +97,29 @@ export async function signInAction(_prev: ActionResult | null, formData: FormDat
   // Route by state/role: forced reset → admin → worker.
   if (user.must_reset) redirect('/set-password');
   redirect(user.role === 'admin' ? '/map' : '/me');
+}
+
+/** Self-registration: create the employee + their login, then sign them in. */
+export async function registerAction(
+  _prev: ActionResult | null,
+  formData: FormData,
+): Promise<ActionResult> {
+  try {
+    const user = await registerWorker({
+      name: String(formData.get('name') ?? ''),
+      email: String(formData.get('email') ?? ''),
+      password: String(formData.get('password') ?? ''),
+      branchId: String(formData.get('branch_id') ?? '') || null,
+      sector: String(formData.get('sector') ?? '') || null,
+      position: String(formData.get('position') ?? '') || null,
+      status: String(formData.get('status') ?? 'active') || 'active',
+    });
+    const session = await createSession(user.id);
+    await setSessionCookie(session.id, session.expiresAt);
+  } catch (e) {
+    return { ok: false, error: errMessage(e) };
+  }
+  redirect('/me');
 }
 
 export async function setPasswordAction(
@@ -440,24 +464,18 @@ export async function createEmployeeAction(_prev: ActionResult | null, formData:
     const ctx = await requireAdmin();
     const name = String(formData.get('name') ?? '').trim();
     const branchId = String(formData.get('branch_id') ?? '') || null;
-    const email = String(formData.get('email') ?? '').trim() || null;
     if (!name) return { ok: false, error: 'Employee name is required' };
-    const emp = await createEmployee(
+    await createEmployee(
       {
         name,
         branchId,
         phone: String(formData.get('phone') ?? '').trim() || null,
         position: String(formData.get('position') ?? '').trim() || null,
+        sector: String(formData.get('sector') ?? '').trim() || null,
         status: (String(formData.get('status') ?? '') as EmployeeStatus) || undefined,
-        email,
       },
       ctx,
     );
-    // If an email was given, provision their read-only login and surface the temp password.
-    if (email) {
-      const tempPassword = await provisionEmployeeLogin(emp.id, email, ctx);
-      return { ok: true, tempPassword };
-    }
   } catch (e) {
     return { ok: false, error: errMessage(e) };
   }
@@ -502,6 +520,9 @@ export async function updateEmployeeAction(
         phone: formData.has('phone') ? String(formData.get('phone') ?? '').trim() || null : undefined,
         position: formData.has('position')
           ? String(formData.get('position') ?? '').trim() || null
+          : undefined,
+        sector: formData.has('sector')
+          ? String(formData.get('sector') ?? '').trim() || null
           : undefined,
         status: (String(formData.get('status') ?? '') as EmployeeStatus) || undefined,
         branchId: branchRaw !== null ? String(branchRaw) || null : undefined,

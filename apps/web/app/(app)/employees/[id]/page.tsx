@@ -12,12 +12,7 @@ import { EmployeeForm } from '@/components/EmployeesView';
 import { ConfirmDialog } from '@/components/ConfirmDialog';
 import { BackButton } from '@/components/BackButton';
 import { BranchSkeleton } from '@/components/Skeleton';
-import { CopyablePassword } from '@/components/CopyablePassword';
-import {
-  deleteEmployeeAction,
-  createEmployeeLoginAction,
-  resetEmployeeLoginAction,
-} from '@/lib/actions';
+import { deleteEmployeeAction } from '@/lib/actions';
 
 const statusLabel = (s: string) => EMPLOYEE_STATUSES.find((x) => x.key === s)?.label ?? s;
 const positionLabel = (p: string | null) =>
@@ -118,6 +113,7 @@ export default function EmployeePage() {
           <Detail label="Email" value={emp.email ?? '—'} />
           <Detail label="Phone" value={emp.phone ?? '—'} />
           <Detail label="Position" value={positionLabel(emp.position)} />
+          <Detail label="Sector" value={emp.sector ?? '—'} />
           <Detail label="Branch" value={branchName} />
           <Detail label="Status" value={statusLabel(emp.status)} />
           <Detail label="Items held" value={String(assigned.length)} />
@@ -195,7 +191,6 @@ export default function EmployeePage() {
                 setSettingsOpen(false);
               }}
             />
-            <LoginAccess emp={emp} onChanged={refresh} />
             <DangerZone
               hasItems={assigned.length}
               onDelete={async () => {
@@ -219,75 +214,6 @@ function Detail({ label, value }: { label: string; value: string }) {
     <div className="min-w-0">
       <dt className="text-[11px] font-medium uppercase tracking-wide text-slate-500">{label}</dt>
       <dd className="mt-0.5 break-words text-sm font-medium text-slate-100">{value}</dd>
-    </div>
-  );
-}
-
-function LoginAccess({ emp, onChanged }: { emp: Employee; onChanged: () => Promise<void> }) {
-  const [temp, setTemp] = useState<string | null>(null);
-  const [err, setErr] = useState<string | null>(null);
-  const [busy, setBusy] = useState(false);
-  const [email, setEmail] = useState(emp.email ?? '');
-  const hasLogin = !!emp.user_id;
-
-  const run = async (fn: () => Promise<{ ok: boolean; tempPassword?: string; error?: string }>) => {
-    setBusy(true);
-    setErr(null);
-    const res = await fn();
-    setBusy(false);
-    if (res.ok) {
-      setTemp(res.tempPassword ?? null);
-      await onChanged();
-    } else {
-      setErr(res.error ?? 'Something went wrong');
-    }
-  };
-
-  return (
-    <div className="border-t border-slate-800 pt-4">
-      <h3 className="text-sm font-semibold text-slate-300">Login access</h3>
-      {temp ? (
-        <div className="mt-2 space-y-1">
-          <p className="text-xs text-slate-500">
-            Temporary password — share it; they set their own on first sign-in:
-          </p>
-          <CopyablePassword value={temp} />
-        </div>
-      ) : hasLogin ? (
-        <>
-          <p className="mt-1 text-xs text-slate-500">
-            Login active for <span className="text-slate-300">{emp.email}</span>. Reset if they forgot it.
-          </p>
-          <button
-            onClick={() => run(() => resetEmployeeLoginAction(emp.id))}
-            disabled={busy}
-            className="btn-ghost mt-2 disabled:opacity-50"
-          >
-            {busy ? 'Working…' : 'Reset password'}
-          </button>
-        </>
-      ) : (
-        <>
-          <p className="mt-1 text-xs text-slate-500">
-            Give this employee a read-only login. Enter their work email:
-          </p>
-          <input
-            value={email}
-            onChange={(e) => setEmail(e.target.value)}
-            type="email"
-            placeholder="worker@airlink.mn"
-            className="field mt-2"
-          />
-          <button
-            onClick={() => run(() => createEmployeeLoginAction(emp.id, email.trim()))}
-            disabled={busy || !email.trim()}
-            className="btn-primary mt-2 disabled:opacity-50"
-          >
-            {busy ? 'Working…' : 'Create login'}
-          </button>
-        </>
-      )}
-      {err && <p className="mt-2 text-sm text-red-400">{err}</p>}
     </div>
   );
 }
