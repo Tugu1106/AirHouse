@@ -12,7 +12,8 @@ import { EmployeeForm } from '@/components/EmployeesView';
 import { ConfirmDialog } from '@/components/ConfirmDialog';
 import { BackButton } from '@/components/BackButton';
 import { BranchSkeleton } from '@/components/Skeleton';
-import { deleteEmployeeAction } from '@/lib/actions';
+import { CopyablePassword } from '@/components/CopyablePassword';
+import { deleteEmployeeAction, resetEmployeeLoginAction } from '@/lib/actions';
 
 const statusLabel = (s: string) => EMPLOYEE_STATUSES.find((x) => x.key === s)?.label ?? s;
 const positionLabel = (p: string | null) =>
@@ -191,6 +192,7 @@ export default function EmployeePage() {
                 setSettingsOpen(false);
               }}
             />
+            <ResetPassword emp={emp} />
             <DangerZone
               hasItems={assigned.length}
               onDelete={async () => {
@@ -214,6 +216,58 @@ function Detail({ label, value }: { label: string; value: string }) {
     <div className="min-w-0">
       <dt className="text-[11px] font-medium uppercase tracking-wide text-slate-500">{label}</dt>
       <dd className="mt-0.5 break-words text-sm font-medium text-slate-100">{value}</dd>
+    </div>
+  );
+}
+
+function ResetPassword({ emp }: { emp: Employee }) {
+  const [code, setCode] = useState<string | null>(null);
+  const [busy, setBusy] = useState(false);
+  const [err, setErr] = useState<string | null>(null);
+
+  if (!emp.user_id) {
+    return (
+      <div className="border-t border-slate-800 pt-4">
+        <h3 className="text-sm font-semibold text-slate-300">Password reset</h3>
+        <p className="mt-1 text-xs text-slate-500">
+          This employee hasn’t registered a login yet — nothing to reset.
+        </p>
+      </div>
+    );
+  }
+
+  const generate = async () => {
+    setBusy(true);
+    setErr(null);
+    const res = await resetEmployeeLoginAction(emp.id);
+    setBusy(false);
+    if (res.ok) setCode(res.tempPassword ?? null);
+    else setErr(res.error ?? 'Something went wrong');
+  };
+
+  return (
+    <div className="border-t border-slate-800 pt-4">
+      <h3 className="text-sm font-semibold text-slate-300">Password reset</h3>
+      {code ? (
+        <div className="mt-2 space-y-1">
+          <p className="text-xs text-slate-500">
+            Give this one-time code to <span className="text-slate-300">{emp.name}</span>. They open{' '}
+            <b className="text-slate-300">Reset password</b> on the sign-in screen, enter their email
+            + this code, then choose a new password:
+          </p>
+          <CopyablePassword value={code} />
+        </div>
+      ) : (
+        <>
+          <p className="mt-1 text-xs text-slate-500">
+            Generate a one-time code so this employee can set a new password.
+          </p>
+          <button onClick={generate} disabled={busy} className="btn-ghost mt-2 disabled:opacity-50">
+            {busy ? 'Working…' : 'Generate reset code'}
+          </button>
+        </>
+      )}
+      {err && <p className="mt-2 text-sm text-red-400">{err}</p>}
     </div>
   );
 }

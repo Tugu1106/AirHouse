@@ -26,6 +26,12 @@ export default async function LoginPage() {
             Create an account
           </Link>
         </p>
+        <p className="mt-1.5 text-center text-xs text-slate-500">
+          Forgot your password?{' '}
+          <Link href="/reset" className="text-brand-light underline">
+            Reset it
+          </Link>
+        </p>
       </div>
     </main>
   );

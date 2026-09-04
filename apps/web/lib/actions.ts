@@ -99,6 +99,36 @@ export async function signInAction(_prev: ActionResult | null, formData: FormDat
   redirect(user.role === 'admin' ? '/map' : '/me');
 }
 
+/**
+ * Password reset with an admin-issued one-time code. The employee supplies
+ * their email + the code + a new password. Only works when the account is in
+ * the forced-reset state (i.e. an admin generated a code) — a normal password
+ * can't be used here, so employees can't reset without going through an admin.
+ */
+export async function resetPasswordAction(
+  _prev: ActionResult | null,
+  formData: FormData,
+): Promise<ActionResult> {
+  const email = String(formData.get('email') ?? '').trim();
+  const code = String(formData.get('code') ?? '');
+  const password = String(formData.get('password') ?? '');
+  const confirm = String(formData.get('confirm') ?? '');
+  try {
+    if (password.length < 8) return { ok: false, error: 'New password must be at least 8 characters.' };
+    if (password !== confirm) return { ok: false, error: 'New passwords do not match.' };
+    const user = await verifyCredentials(email, code);
+    if (!user || !user.must_reset) {
+      return { ok: false, error: 'Invalid email or reset code. Ask an admin for a new code.' };
+    }
+    await setUserPassword(user.id, password); // clears must_reset
+    const session = await createSession(user.id);
+    await setSessionCookie(session.id, session.expiresAt);
+  } catch (e) {
+    return { ok: false, error: errMessage(e) };
+  }
+  redirect('/me');
+}
+
 /** Self-registration: create the employee + their login, then sign them in. */
 export async function registerAction(
   _prev: ActionResult | null,

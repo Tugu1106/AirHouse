@@ -9,7 +9,7 @@ import { NextResponse, type NextRequest } from 'next/server';
 // a /login → / → /login redirect loop and prevents switching accounts.
 // /scan is the public asset-tag lookup a QR opens — no login (any phone on the
 // internal network can view an item's live owner/branch/status).
-const PUBLIC = ['/login', '/register', '/scan'];
+const PUBLIC = ['/login', '/register', '/reset', '/scan'];
 
 export function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
