@@ -7,7 +7,7 @@ import {
   EMPLOYEE_STATUSES,
   EMPLOYEE_POSITIONS,
   EMPLOYEE_SECTORS,
-  DEFAULT_POSITION,
+  positionsForSector,
   type EmployeeStatus,
 } from '@airlink/core/types';
 import type { Employee } from '@airlink/core';
@@ -28,6 +28,7 @@ import {
 } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
 import { useData } from './DataProvider';
+import { hqFirst } from '@/lib/branchSort';
 import { Dialog } from './ItemsView';
 import { Select } from './Select';
 import { SubmitButton } from './SubmitButton';
@@ -246,7 +247,7 @@ export function EmployeesView() {
           className="w-40"
           options={[
             { value: '', label: 'All branches' },
-            ...branches.map((b) => ({ value: b.id, label: b.name })),
+            ...hqFirst(branches).map((b) => ({ value: b.id, label: b.name })),
           ]}
         />
         <Select
@@ -463,7 +464,7 @@ export function EmployeeForm({
   defaultBranchId,
   onDone,
 }: {
-  branches: { id: string; name: string }[];
+  branches: { id: string; name: string; is_hq?: boolean }[];
   emp?: Employee;
   defaultBranchId?: string | null;
   onDone: () => void;
@@ -471,9 +472,28 @@ export function EmployeeForm({
   const { employees } = useData();
   const action = emp ? updateEmployeeAction : createEmployeeAction;
   const [state, formAction] = useActionState<ActionResult | null, FormData>(action, null);
+  const [sector, setSector] = useState(emp?.sector ?? '');
+  const [position, setPosition] = useState(emp?.position ?? '');
   useEffect(() => {
     if (state?.ok) onDone();
   }, [state, onDone]);
+
+  const posList = positionsForSector(sector || undefined);
+  const positionOptions = [
+    { value: '', label: '—' },
+    // keep the current (possibly off-list / old-data) position selectable
+    ...(position && !posList.some((p) => p.key === position)
+      ? [{ value: position, label: position }]
+      : []),
+    ...posList.map((p) => ({ value: p.key, label: p.label })),
+  ];
+  const sectorOptions = [
+    { value: '', label: '—' },
+    ...(sector && !EMPLOYEE_SECTORS.some((s) => s.key === sector)
+      ? [{ value: sector, label: sector }]
+      : []),
+    ...EMPLOYEE_SECTORS.map((s) => ({ value: s.key, label: s.label })),
+  ];
 
   return (
     <form action={formAction} className="space-y-4">
@@ -488,35 +508,29 @@ export function EmployeeForm({
           <input name="phone" defaultValue={emp?.phone ?? ''} className="mt-1 w-full rounded-md border border-slate-700 bg-slate-800 text-slate-100 placeholder-slate-500 px-3 py-2 text-sm" />
         </div>
         <div>
-          <label className="block text-sm font-medium text-slate-300">Position</label>
-          <Select
-            name="position"
-            defaultValue={emp?.position ?? DEFAULT_POSITION}
-            className="mt-1"
-            options={[
-              // keep an existing off-list value (old data) selectable on edit
-              ...(emp?.position && !EMPLOYEE_POSITIONS.some((p) => p.key === emp.position)
-                ? [{ value: emp.position, label: emp.position }]
-                : []),
-              ...EMPLOYEE_POSITIONS.map((p) => ({ value: p.key, label: p.label })),
-            ]}
-          />
-        </div>
-        <div>
           <label className="block text-sm font-medium text-slate-300">Sector</label>
           <Select
             name="sector"
-            defaultValue={emp?.sector ?? ''}
+            value={sector}
+            onChange={(v) => {
+              setSector(v);
+              setPosition('');
+            }}
             placeholder="—"
             className="mt-1"
-            options={[
-              { value: '', label: '—' },
-              // keep an existing off-list sector (old data) selectable on edit
-              ...(emp?.sector && !EMPLOYEE_SECTORS.some((s) => s.key === emp.sector)
-                ? [{ value: emp.sector, label: emp.sector }]
-                : []),
-              ...EMPLOYEE_SECTORS.map((s) => ({ value: s.key, label: s.label })),
-            ]}
+            options={sectorOptions}
+          />
+        </div>
+        <div>
+          <label className="block text-sm font-medium text-slate-300">Position</label>
+          <Select
+            name="position"
+            value={position}
+            onChange={setPosition}
+            disabled={!sector}
+            placeholder={sector ? '—' : 'Pick a sector first'}
+            className="mt-1"
+            options={positionOptions}
           />
         </div>
         <div>
@@ -527,7 +541,7 @@ export function EmployeeForm({
             className="mt-1"
             options={[
               { value: '', label: '— none —' },
-              ...branches.map((b) => ({ value: b.id, label: b.name })),
+              ...hqFirst(branches).map((b) => ({ value: b.id, label: b.name })),
             ]}
           />
         </div>

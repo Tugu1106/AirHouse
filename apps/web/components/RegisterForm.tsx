@@ -1,21 +1,30 @@
 'use client';
 
+import { useState } from 'react';
 import { useActionState } from 'react';
 import Link from 'next/link';
 import {
-  EMPLOYEE_POSITIONS,
   EMPLOYEE_SECTORS,
   EMPLOYEE_STATUSES,
-  DEFAULT_POSITION,
+  positionsForSector,
 } from '@airlink/core/types';
 import { registerAction, type ActionResult } from '@/lib/actions';
+import { hqFirst } from '@/lib/branchSort';
 import { Select } from './Select';
 import { SubmitButton } from './SubmitButton';
 
-type BranchLite = { id: string; name: string };
+type BranchLite = { id: string; name: string; is_hq?: boolean };
 
 export function RegisterForm({ branches }: { branches: BranchLite[] }) {
   const [state, formAction] = useActionState<ActionResult | null, FormData>(registerAction, null);
+  const [sector, setSector] = useState('');
+  const [position, setPosition] = useState('');
+  const positionOpts = positionsForSector(sector || undefined);
+
+  const branchOpts = [
+    { value: '', label: 'Select…' },
+    ...hqFirst(branches).map((b) => ({ value: b.id, label: b.name })),
+  ];
 
   return (
     <form action={formAction} className="space-y-4">
@@ -27,14 +36,7 @@ export function RegisterForm({ branches }: { branches: BranchLite[] }) {
       <div className="grid grid-cols-2 gap-3">
         <div className="col-span-2">
           <label className="block text-sm font-medium text-slate-300">Work email *</label>
-          <input
-            name="email"
-            type="email"
-            required
-            autoComplete="email"
-            className="field mt-1"
-            placeholder="jane@airlink.mn"
-          />
+          <input name="email" type="email" required autoComplete="email" className="field mt-1" placeholder="jane@airlink.mn" />
         </div>
         <div className="col-span-2">
           <label className="block text-sm font-medium text-slate-300">Password *</label>
@@ -51,34 +53,35 @@ export function RegisterForm({ branches }: { branches: BranchLite[] }) {
 
         <div>
           <label className="block text-sm font-medium text-slate-300">Branch</label>
-          <Select
-            name="branch_id"
-            defaultValue=""
-            placeholder="Select…"
-            className="mt-1"
-            options={[{ value: '', label: 'Select…' }, ...branches.map((b) => ({ value: b.id, label: b.name }))]}
-          />
+          <Select name="branch_id" defaultValue="" placeholder="Select…" className="mt-1" options={branchOpts} />
         </div>
         <div>
           <label className="block text-sm font-medium text-slate-300">Sector</label>
           <Select
             name="sector"
-            defaultValue=""
+            value={sector}
+            onChange={(v) => {
+              setSector(v);
+              setPosition('');
+            }}
             placeholder="Select…"
             className="mt-1"
             options={[{ value: '', label: 'Select…' }, ...EMPLOYEE_SECTORS.map((s) => ({ value: s.key, label: s.label }))]}
           />
         </div>
-        <div>
+        <div className="col-span-2">
           <label className="block text-sm font-medium text-slate-300">Position</label>
           <Select
             name="position"
-            defaultValue={DEFAULT_POSITION}
+            value={position}
+            onChange={setPosition}
+            disabled={!sector}
+            placeholder={sector ? 'Select…' : 'Pick a sector first'}
             className="mt-1"
-            options={EMPLOYEE_POSITIONS.map((p) => ({ value: p.key, label: p.label }))}
+            options={[{ value: '', label: 'Select…' }, ...positionOpts.map((p) => ({ value: p.key, label: p.label }))]}
           />
         </div>
-        <div>
+        <div className="col-span-2">
           <label className="block text-sm font-medium text-slate-300">Status</label>
           <Select
             name="status"

@@ -7,6 +7,7 @@ import { listItemTypes, getItemType, type ItemTypeDef } from '@airlink/core/item
 import { ITEM_STATUSES, type ItemStatus } from '@airlink/core/types';
 import type { ItemWithRelations } from '@airlink/core';
 import { useData } from './DataProvider';
+import { hqFirst } from '@/lib/branchSort';
 import {
   DndContext,
   closestCenter,
@@ -762,7 +763,7 @@ function useDoneOnSuccess(state: ActionResult | null, onDone: () => void) {
   }, [state, onDone]);
 }
 
-type BranchLite = { id: string; name: string };
+type BranchLite = { id: string; name: string; is_hq?: boolean };
 type EmployeeLite = { id: string; name: string; branch_id: string | null };
 
 function AddItemForm({
@@ -812,7 +813,7 @@ function AddItemForm({
             className="mt-1"
             options={[
               { value: '', label: 'Select…' },
-              ...branches.map((b) => ({ value: b.id, label: b.name })),
+              ...hqFirst(branches).map((b) => ({ value: b.id, label: b.name })),
             ]}
           />
         </div>
@@ -915,7 +916,7 @@ export function TransferForm({
           className="mt-1"
           options={[
             { value: '', label: 'Select a branch' },
-            ...branches.map((b) => ({ value: b.id, label: b.name })),
+            ...hqFirst(branches).map((b) => ({ value: b.id, label: b.name })),
           ]}
         />
         <p className="mt-1 text-xs text-slate-400">Choose a branch to see its employees and move the item there.</p>

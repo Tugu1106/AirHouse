@@ -234,7 +234,7 @@ export const AI_WRITE_TOOLS = [
           branch: { type: 'string', description: 'branch name' },
           position: {
             type: 'string',
-            description: 'Developer, Ecommerce, HR manager, or Agent',
+            description: "the employee's job position/title",
           },
           status: { type: 'string', description: 'active, trial, pregnancy_leave, or fired' },
           phone: { type: 'string' },

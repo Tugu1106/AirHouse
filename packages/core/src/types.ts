@@ -31,29 +31,53 @@ export const EMPLOYEE_STATUSES: { key: EmployeeStatus; label: string }[] = [
   { key: 'fired', label: 'Fired' },
 ];
 
-// Default position suggestions. Positions are FREE TEXT — the web form offers
-// these plus any already in use, and Claude/MCP can set any value. New
-// Employee positions are a fixed set of options.
-export const EMPLOYEE_POSITIONS: { key: string; label: string }[] = [
-  { key: 'Developer', label: 'Developer' },
-  { key: 'Ecommerce', label: 'Ecommerce' },
-  { key: 'HR manager', label: 'HR manager' },
-  { key: 'Agent', label: 'Agent' },
+// Sectors (departments) and the positions within each — the ONE source of
+// truth. Order matters and is preserved as written. The Position dropdown
+// cascades from the chosen Sector via positionsForSector().
+export const SECTOR_POSITIONS: { sector: string; positions: string[] }[] = [
+  { sector: 'Байгууллага хариуцсан нэгж', positions: ['Тийз захиалгын ажилтан', 'Билет бичигч'] },
+  { sector: 'Удирдлага', positions: ['Гүйцэтгэх захирал', 'Дэд захирал'] },
+  {
+    sector: 'Борлуулалт, үйлчилгээний алба',
+    positions: [
+      'Борлуулалт, үйлчилгээний албаны дарга',
+      'Маркетингийн менежер',
+      'Онлайн борлуулалтын менежер /ECommerce/',
+      'Программ хангамж хөгжүүлэгч',
+    ],
+  },
+  {
+    sector: 'Санхүү бүртгэлийн алба',
+    positions: [
+      'Ерөнхий нягтлан бодогч',
+      'Ахлах нягтлан бодогч',
+      'Санхүүгийн шинжээч',
+      'Нягтлан бодогч',
+    ],
+  },
+  { sector: 'Хүний нөөцийн алба', positions: ['Хүний нөөцийн мэргэжилтэн'] },
 ];
 
-export const DEFAULT_POSITION = 'Agent';
+export const EMPLOYEE_SECTORS: { key: string; label: string }[] = SECTOR_POSITIONS.map((s) => ({
+  key: s.sector,
+  label: s.sector,
+}));
 
-// Sectors / departments — a FIXED dropdown. Edit this one list to change the
-// options everywhere (register form, admin add/edit, filters).
-// TODO: replace these placeholders with Airlink's real sectors.
-export const EMPLOYEE_SECTORS: { key: string; label: string }[] = [
-  { key: 'Sales', label: 'Sales' },
-  { key: 'Operations', label: 'Operations' },
-  { key: 'Finance', label: 'Finance' },
-  { key: 'IT', label: 'IT' },
-  { key: 'HR', label: 'HR' },
-  { key: 'Marketing', label: 'Marketing' },
-];
+// Flat list of every position (used when no sector is chosen, and for filters).
+export const EMPLOYEE_POSITIONS: { key: string; label: string }[] = SECTOR_POSITIONS.flatMap((s) =>
+  s.positions.map((p) => ({ key: p, label: p })),
+);
+
+/** Default when a position isn't specified (e.g. MCP) — none, since positions
+ *  depend on the chosen sector. */
+export const DEFAULT_POSITION = '';
+
+/** Positions belonging to a sector; all positions if none/unknown given. */
+export function positionsForSector(sector: string | null | undefined): { key: string; label: string }[] {
+  const found = SECTOR_POSITIONS.find((s) => s.sector === sector);
+  const list = found ? found.positions : SECTOR_POSITIONS.flatMap((s) => s.positions);
+  return list.map((p) => ({ key: p, label: p }));
+}
 
 export interface Employee {
   id: UUID;

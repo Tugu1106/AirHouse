@@ -14,7 +14,7 @@ export default async function RegisterPage() {
             Register yourself, then add your PC from your profile.
           </p>
         </div>
-        <RegisterForm branches={branches.map((b) => ({ id: b.id, name: b.name }))} />
+        <RegisterForm branches={branches.map((b) => ({ id: b.id, name: b.name, is_hq: b.is_hq }))} />
       </div>
     </main>
   );
