@@ -11,6 +11,7 @@ import {
   updateItem,
   softDeleteItem,
   restoreItem,
+  hardDeleteItem,
   transferItem,
   createBranch,
   updateBranch,
@@ -347,6 +348,17 @@ export async function bulkRestoreItemsAction(ids: string[]): Promise<ActionResul
   try {
     const ctx = await requireAdmin();
     for (const id of ids) if (id) await restoreItem(id, ctx);
+  } catch (e) {
+    return { ok: false, error: errMessage(e) };
+  }
+  return { ok: true };
+}
+
+/** Permanently remove many items (Select mode). No undo — the purge is logged. */
+export async function bulkHardDeleteItemsAction(ids: string[]): Promise<ActionResult> {
+  try {
+    const ctx = await requireAdmin();
+    for (const id of ids) if (id) await hardDeleteItem(id, ctx);
   } catch (e) {
     return { ok: false, error: errMessage(e) };
   }

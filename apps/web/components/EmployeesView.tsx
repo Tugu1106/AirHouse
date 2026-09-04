@@ -30,6 +30,7 @@ import { useData } from './DataProvider';
 import { Dialog } from './ItemsView';
 import { Select } from './Select';
 import { SubmitButton } from './SubmitButton';
+import { CopyablePassword } from './CopyablePassword';
 import {
   createEmployeeAction,
   updateEmployeeAction,
@@ -544,9 +545,7 @@ export function EmployeeForm({
           Employee added and their login is ready. Share this <b>temporary password</b> with them —
           they'll set their own on first sign-in:
         </p>
-        <div className="rounded-md border border-slate-700 bg-slate-800 px-3 py-2 font-mono text-lg tracking-wide text-brand-light">
-          {createdTemp}
-        </div>
+        <CopyablePassword value={createdTemp} big />
         <p className="text-xs text-slate-500">
           They sign in at this site with their work email + this password.
         </p>

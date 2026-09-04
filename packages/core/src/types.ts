@@ -6,7 +6,7 @@ export type ItemStatus = 'active' | 'in_repair' | 'retired' | 'lost';
 
 export const ITEM_STATUSES: ItemStatus[] = ['active', 'in_repair', 'retired', 'lost'];
 
-export type AuditAction = 'create' | 'update' | 'soft_delete' | 'transfer';
+export type AuditAction = 'create' | 'update' | 'soft_delete' | 'hard_delete' | 'transfer';
 
 export interface Branch {
   id: UUID;

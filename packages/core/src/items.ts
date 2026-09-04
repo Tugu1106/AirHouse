@@ -112,6 +112,36 @@ export async function softDeleteItem(id: UUID, ctx: ActorContext): Promise<Item>
   return after;
 }
 
+/**
+ * Hard delete — permanently removes the item row (no undo). The item's history
+ * rows are detached (item_id → null) so the FK doesn't block the delete but the
+ * log survives, and a 'hard_delete' entry is written recording what was purged.
+ */
+export async function hardDeleteItem(id: UUID, ctx: ActorContext): Promise<void> {
+  const db = getDb();
+  const before = await getItem(id);
+  if (!before) return; // already gone; idempotent
+
+  // A readable label for the log (system name → model → type).
+  const props = (before.properties ?? {}) as Record<string, unknown>;
+  const name =
+    (props.system_name as string) || (props.model as string) || (props.serial as string) || null;
+
+  // Detach existing audit rows that point at this item so the FK allows the delete.
+  await db.updateTable('audit_log').set({ item_id: null }).where('item_id', '=', id).execute();
+
+  await db.deleteFrom('items').where('id', '=', id).execute();
+
+  // Record the purge — no item_id (the row no longer exists); keep type/name in diff.
+  await writeAudit({
+    entity_type: 'item',
+    entity_id: id,
+    action: 'hard_delete',
+    actor: ctx.actorId,
+    diff: { purged: true, type: before.type, name },
+  });
+}
+
 /** Restore a soft-deleted item (undo). */
 export async function restoreItem(id: UUID, ctx: ActorContext): Promise<Item> {
   const db = getDb();

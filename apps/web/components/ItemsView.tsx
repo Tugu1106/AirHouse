@@ -30,6 +30,7 @@ import {
   reorderItemsAction,
   bulkDeleteItemsAction,
   bulkRestoreItemsAction,
+  bulkHardDeleteItemsAction,
   type ActionResult,
 } from '@/lib/actions';
 import { SubmitButton } from './SubmitButton';
@@ -56,6 +57,7 @@ export function ItemsView({ scopeBranchId }: { scopeBranchId?: string }) {
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [bulkBusy, setBulkBusy] = useState(false);
   const [confirmBulk, setConfirmBulk] = useState(false);
+  const [confirmPurge, setConfirmPurge] = useState(false);
 
   const [search, setSearch] = useState('');
   const [type, setType] = useState('');
@@ -199,6 +201,7 @@ export function ItemsView({ scopeBranchId }: { scopeBranchId?: string }) {
     setSelectMode(false);
     setSelected(new Set());
     setConfirmBulk(false);
+    setConfirmPurge(false);
   };
 
   const runBulkDelete = async () => {
@@ -216,6 +219,17 @@ export function ItemsView({ scopeBranchId }: { scopeBranchId?: string }) {
     setBulkBusy(true);
     try {
       await bulkRestoreItemsAction([...selected]);
+      await refresh();
+      exitSelect();
+    } finally {
+      setBulkBusy(false);
+    }
+  };
+
+  const runBulkPurge = async () => {
+    setBulkBusy(true);
+    try {
+      await bulkHardDeleteItemsAction([...selected]);
       await refresh();
       exitSelect();
     } finally {
@@ -357,22 +371,33 @@ export function ItemsView({ scopeBranchId }: { scopeBranchId?: string }) {
             </button>
           )}
           <div className="ml-auto flex items-center gap-2">
-            {showDeleted && (
+            {showDeleted ? (
+              <>
+                <button
+                  onClick={runBulkRestore}
+                  disabled={selected.size === 0 || bulkBusy}
+                  className="rounded-md border border-slate-600 px-3 py-1.5 text-sm font-medium text-slate-200 hover:bg-slate-800 disabled:opacity-50"
+                >
+                  Restore
+                </button>
+                <button
+                  onClick={() => setConfirmPurge(true)}
+                  disabled={selected.size === 0 || bulkBusy}
+                  title="Permanently remove — cannot be undone"
+                  className="rounded-md bg-red-700 px-4 py-1.5 text-sm font-medium text-white hover:bg-red-600 disabled:opacity-50"
+                >
+                  {bulkBusy ? 'Working…' : `Delete permanently ${selected.size || ''}`.trim()}
+                </button>
+              </>
+            ) : (
               <button
-                onClick={runBulkRestore}
+                onClick={() => setConfirmBulk(true)}
                 disabled={selected.size === 0 || bulkBusy}
-                className="rounded-md border border-slate-600 px-3 py-1.5 text-sm font-medium text-slate-200 hover:bg-slate-800 disabled:opacity-50"
+                className="rounded-md bg-red-600 px-4 py-1.5 text-sm font-medium text-white hover:bg-red-500 disabled:opacity-50"
               >
-                Restore
+                {bulkBusy ? 'Working…' : `Delete ${selected.size || ''}`.trim()}
               </button>
             )}
-            <button
-              onClick={() => setConfirmBulk(true)}
-              disabled={selected.size === 0 || bulkBusy}
-              className="rounded-md bg-red-600 px-4 py-1.5 text-sm font-medium text-white hover:bg-red-500 disabled:opacity-50"
-            >
-              {bulkBusy ? 'Working…' : `Delete ${selected.size || ''}`.trim()}
-            </button>
           </div>
         </div>
       )}
@@ -511,6 +536,37 @@ export function ItemsView({ scopeBranchId }: { scopeBranchId?: string }) {
                 className="rounded-md bg-red-600 px-4 py-2 text-sm font-medium text-white hover:bg-red-500 disabled:opacity-50"
               >
                 {bulkBusy ? 'Deleting…' : `Delete ${selected.size}`}
+              </button>
+            </div>
+          </div>
+        </Dialog>
+      )}
+
+      {confirmPurge && (
+        <Dialog
+          title={`Permanently delete ${selected.size} item${selected.size === 1 ? '' : 's'}?`}
+          onClose={() => setConfirmPurge(false)}
+        >
+          <div className="space-y-4">
+            <p className="text-sm text-slate-300">
+              This <span className="font-semibold text-red-400">completely removes</span> the selected
+              item{selected.size === 1 ? '' : 's'} from the database — no restore. A{' '}
+              <span className="font-medium text-slate-200">“purged”</span> entry stays in the Activity
+              Log for the record.
+            </p>
+            <div className="flex justify-end gap-2">
+              <button
+                onClick={() => setConfirmPurge(false)}
+                className="rounded-md border border-slate-700 px-4 py-2 text-sm text-slate-300 hover:bg-slate-800"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={runBulkPurge}
+                disabled={bulkBusy}
+                className="rounded-md bg-red-700 px-4 py-2 text-sm font-medium text-white hover:bg-red-600 disabled:opacity-50"
+              >
+                {bulkBusy ? 'Deleting…' : `Delete permanently`}
               </button>
             </div>
           </div>

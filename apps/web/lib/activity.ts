@@ -52,8 +52,13 @@ function resolveRows(
       const du = (e.diff ?? {}) as { email?: string };
       return { label: `Admin · ${du.email ?? '—'}` };
     }
+    // For a purged (hard-deleted) item the row is gone, so fall back to the
+    // type/name captured in the diff at delete time.
+    const di = (e.diff ?? {}) as { type?: string; name?: string };
+    const itemType = e.item_type ?? di.type ?? 'item';
+    const itemName = e.item_name ?? di.name ?? null;
     return {
-      label: `${e.item_type ?? 'item'}${e.item_name ? ` · ${e.item_name}` : ''}`,
+      label: `${itemType}${itemName ? ` · ${itemName}` : ''}`,
       href: e.item_id ? `/item/${e.item_id}` : undefined,
     };
   };

@@ -12,6 +12,7 @@ import { EmployeeForm } from '@/components/EmployeesView';
 import { ConfirmDialog } from '@/components/ConfirmDialog';
 import { BackButton } from '@/components/BackButton';
 import { BranchSkeleton } from '@/components/Skeleton';
+import { CopyablePassword } from '@/components/CopyablePassword';
 import {
   deleteEmployeeAction,
   createEmployeeLoginAction,
@@ -250,9 +251,7 @@ function LoginAccess({ emp, onChanged }: { emp: Employee; onChanged: () => Promi
           <p className="text-xs text-slate-500">
             Temporary password — share it; they set their own on first sign-in:
           </p>
-          <div className="rounded-md border border-slate-700 bg-slate-800 px-3 py-2 font-mono text-brand-light">
-            {temp}
-          </div>
+          <CopyablePassword value={temp} />
         </div>
       ) : hasLogin ? (
         <>

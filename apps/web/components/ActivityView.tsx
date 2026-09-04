@@ -40,6 +40,7 @@ const ACTION_LABEL: Record<string, string> = {
   update: 'Updated',
   transfer: 'Transferred',
   soft_delete: 'Deleted',
+  hard_delete: 'Purged',
 };
 
 // YYYY-MM-DD HH:mm:ss in the viewer's local time (sv-SE gives an ISO-like format).
