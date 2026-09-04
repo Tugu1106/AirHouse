@@ -54,6 +54,13 @@ const ACTION_COLOR: Record<string, string> = {
 };
 const colorFor = (action: string) => ACTION_COLOR[action] ?? 'text-slate-300';
 
+// Source badge (AI / SCAN) — a bold pill so automated changes pop out of the log.
+const VIA_BADGE: Record<string, string> = {
+  ai: 'bg-violet-500/25 text-violet-200 ring-violet-400/50',
+  scan: 'bg-teal-500/25 text-teal-200 ring-teal-400/50',
+};
+const viaBadge = (via: string) => VIA_BADGE[via] ?? 'bg-slate-500/25 text-slate-200 ring-slate-400/50';
+
 // Legend shown above the log so the colors are self-explanatory.
 const LEGEND: { label: string; cls: string }[] = [
   { label: 'Created', cls: 'text-emerald-300' },
@@ -83,8 +90,14 @@ function TerminalRow({ r }: { r: ActivityRow }) {
   const thing = name ? `${kind.toLowerCase()} ${name}` : kind.toLowerCase();
   return (
     <span className={colorFor(r.action)}>
-      {`${ts(r.when)}  ${r.actor}`}
-      {r.via && <span className="font-semibold text-violet-300"> [{r.via.toUpperCase()}]</span>}
+      {`${ts(r.when)}  ${r.actor} `}
+      {r.via && (
+        <span
+          className={`mx-0.5 inline-block rounded px-1.5 py-px align-middle text-[10px] font-bold uppercase tracking-wider ring-1 ${viaBadge(r.via)}`}
+        >
+          {r.via}
+        </span>
+      )}
       {` ${verb} ${thing}${r.detail ? ` — ${r.detail}` : ''}`}
       {'\n'}
     </span>
