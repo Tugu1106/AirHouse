@@ -520,7 +520,7 @@ export function EmployeeForm({
           <label className="block text-sm font-medium text-slate-300">Viber phone</label>
           <input name="phone" defaultValue={emp?.phone ?? ''} className="mt-1 w-full rounded-md border border-slate-700 bg-slate-800 text-slate-100 placeholder-slate-500 px-3 py-2 text-sm" />
         </div>
-        <div>
+        <div className="col-span-2">
           <label className="block text-sm font-medium text-slate-300">Sector</label>
           <Select
             name="sector"
@@ -534,7 +534,7 @@ export function EmployeeForm({
             options={sectorOptions}
           />
         </div>
-        <div>
+        <div className="col-span-2">
           <label className="block text-sm font-medium text-slate-300">Position</label>
           <Select
             name="position"

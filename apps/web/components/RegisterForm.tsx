@@ -76,7 +76,7 @@ export function RegisterForm({ branches }: { branches: BranchLite[] }) {
           />
         </div>
 
-        <div>
+        <div className="col-span-2">
           <label className="block text-sm font-medium text-slate-300">Branch *</label>
           <Select
             name="branch_id"
@@ -87,7 +87,7 @@ export function RegisterForm({ branches }: { branches: BranchLite[] }) {
             options={branchOpts}
           />
         </div>
-        <div>
+        <div className="col-span-2">
           <label className="block text-sm font-medium text-slate-300">Sector *</label>
           <Select
             name="sector"

@@ -125,8 +125,8 @@ export default function BranchPage() {
                     {initialsOf(e.name)}
                   </span>
                   <div className="min-w-0">
-                    <div className="truncate text-sm font-medium text-white">{e.name}</div>
-                    <div className="truncate text-xs text-slate-400">{positionLabel(e.position)}</div>
+                    <div className="text-sm font-medium text-white">{e.name}</div>
+                    <div className="text-xs text-slate-400">{positionLabel(e.position)}</div>
                   </div>
                   <span
                     title={statusLabel(e.status)}

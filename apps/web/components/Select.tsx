@@ -122,7 +122,7 @@ export function Select({
           open ? 'border-brand ring-1 ring-brand' : 'border-slate-700 hover:border-slate-600'
         }`}
       >
-        <span className={selected ? 'truncate' : 'truncate text-slate-500'}>
+        <span className={`min-w-0 flex-1 break-words ${selected ? '' : 'text-slate-500'}`}>
           {selected?.label ?? placeholder}
         </span>
         <svg
@@ -170,7 +170,7 @@ export function Select({
                           : 'text-slate-300'
                   }`}
                 >
-                  <span className="truncate">{o.label}</span>
+                  <span className="break-words">{o.label}</span>
                   {isSel && (
                     <svg
                       viewBox="0 0 24 24"
