@@ -79,6 +79,14 @@ export function positionsForSector(sector: string | null | undefined): { key: st
   return list.map((p) => ({ key: p, label: p }));
 }
 
+/** The only sector available outside the HQ (downtown) branch. */
+export const NON_HQ_SECTOR = SECTOR_POSITIONS[0]?.sector ?? '';
+
+/** Sectors available at a branch: all at HQ, only NON_HQ_SECTOR elsewhere. */
+export function sectorsForBranch(isHq: boolean): { key: string; label: string }[] {
+  return isHq ? EMPLOYEE_SECTORS : EMPLOYEE_SECTORS.filter((s) => s.key === NON_HQ_SECTOR);
+}
+
 export interface Employee {
   id: UUID;
   name: string;

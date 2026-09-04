@@ -6,8 +6,9 @@ import Link from 'next/link';
 import {
   EMPLOYEE_STATUSES,
   EMPLOYEE_POSITIONS,
-  EMPLOYEE_SECTORS,
   positionsForSector,
+  sectorsForBranch,
+  NON_HQ_SECTOR,
   type EmployeeStatus,
 } from '@airlink/core/types';
 import type { Employee } from '@airlink/core';
@@ -472,13 +473,25 @@ export function EmployeeForm({
   const { employees } = useData();
   const action = emp ? updateEmployeeAction : createEmployeeAction;
   const [state, formAction] = useActionState<ActionResult | null, FormData>(action, null);
+  const [branch, setBranch] = useState(emp?.branch_id ?? defaultBranchId ?? '');
   const [sector, setSector] = useState(emp?.sector ?? '');
   const [position, setPosition] = useState(emp?.position ?? '');
   useEffect(() => {
     if (state?.ok) onDone();
   }, [state, onDone]);
 
+  const branchIsHq = !!(branch && branches.find((b) => b.id === branch)?.is_hq);
+  const sectorList = sectorsForBranch(branchIsHq);
   const posList = positionsForSector(sector || undefined);
+
+  // Branch drives which sectors are allowed; non-HQ branches auto-get the one sector.
+  const onBranch = (v: string) => {
+    setBranch(v);
+    const hq = !!(v && branches.find((b) => b.id === v)?.is_hq);
+    setSector(v && !hq ? NON_HQ_SECTOR : '');
+    setPosition('');
+  };
+
   const positionOptions = [
     { value: '', label: '—' },
     // keep the current (possibly off-list / old-data) position selectable
@@ -489,10 +502,10 @@ export function EmployeeForm({
   ];
   const sectorOptions = [
     { value: '', label: '—' },
-    ...(sector && !EMPLOYEE_SECTORS.some((s) => s.key === sector)
+    ...(sector && !sectorList.some((s) => s.key === sector)
       ? [{ value: sector, label: sector }]
       : []),
-    ...EMPLOYEE_SECTORS.map((s) => ({ value: s.key, label: s.label })),
+    ...sectorList.map((s) => ({ value: s.key, label: s.label })),
   ];
 
   return (
@@ -537,7 +550,8 @@ export function EmployeeForm({
           <label className="block text-sm font-medium text-slate-300">Branch</label>
           <Select
             name="branch_id"
-            defaultValue={emp?.branch_id ?? defaultBranchId ?? ''}
+            value={branch}
+            onChange={onBranch}
             className="mt-1"
             options={[
               { value: '', label: '— none —' },

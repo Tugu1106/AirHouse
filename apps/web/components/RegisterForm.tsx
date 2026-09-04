@@ -4,9 +4,10 @@ import { useState } from 'react';
 import { useActionState } from 'react';
 import Link from 'next/link';
 import {
-  EMPLOYEE_SECTORS,
   EMPLOYEE_STATUSES,
   positionsForSector,
+  sectorsForBranch,
+  NON_HQ_SECTOR,
 } from '@airlink/core/types';
 import { registerAction, type ActionResult } from '@/lib/actions';
 import { hqFirst } from '@/lib/branchSort';
@@ -17,9 +18,22 @@ type BranchLite = { id: string; name: string; is_hq?: boolean };
 
 export function RegisterForm({ branches }: { branches: BranchLite[] }) {
   const [state, formAction] = useActionState<ActionResult | null, FormData>(registerAction, null);
+  const [branch, setBranch] = useState('');
   const [sector, setSector] = useState('');
   const [position, setPosition] = useState('');
+
+  const branchIsHq = !!(branch && branches.find((b) => b.id === branch)?.is_hq);
+  const sectorOpts = sectorsForBranch(branchIsHq);
   const positionOpts = positionsForSector(sector || undefined);
+
+  // Branch drives which sectors are allowed. Non-HQ branches only have one
+  // sector, so auto-select it; HQ lets them choose.
+  const onBranch = (v: string) => {
+    setBranch(v);
+    const hq = !!(v && branches.find((b) => b.id === v)?.is_hq);
+    setSector(v && !hq ? NON_HQ_SECTOR : '');
+    setPosition('');
+  };
 
   const branchOpts = [
     { value: '', label: 'Select…' },
@@ -64,7 +78,14 @@ export function RegisterForm({ branches }: { branches: BranchLite[] }) {
 
         <div>
           <label className="block text-sm font-medium text-slate-300">Branch *</label>
-          <Select name="branch_id" defaultValue="" placeholder="Select…" className="mt-1" options={branchOpts} />
+          <Select
+            name="branch_id"
+            value={branch}
+            onChange={onBranch}
+            placeholder="Select…"
+            className="mt-1"
+            options={branchOpts}
+          />
         </div>
         <div>
           <label className="block text-sm font-medium text-slate-300">Sector *</label>
@@ -75,9 +96,10 @@ export function RegisterForm({ branches }: { branches: BranchLite[] }) {
               setSector(v);
               setPosition('');
             }}
-            placeholder="Select…"
+            disabled={!branch}
+            placeholder={branch ? 'Select…' : 'Pick a branch first'}
             className="mt-1"
-            options={[{ value: '', label: 'Select…' }, ...EMPLOYEE_SECTORS.map((s) => ({ value: s.key, label: s.label }))]}
+            options={[{ value: '', label: 'Select…' }, ...sectorOpts.map((s) => ({ value: s.key, label: s.label }))]}
           />
         </div>
         <div className="col-span-2">
