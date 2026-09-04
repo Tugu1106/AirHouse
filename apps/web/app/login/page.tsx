@@ -20,18 +20,15 @@ export default async function LoginPage() {
           </p>
         )}
         <LoginForm />
-        <p className="mt-5 text-center text-xs text-slate-500">
-          New here?{' '}
-          <Link href="/register" className="text-brand-light underline">
-            Create an account
+        <div className="mt-6 border-t border-slate-800 pt-5 text-center">
+          <p className="text-sm text-slate-400">New here?</p>
+          <Link
+            href="/register"
+            className="mt-1 inline-block text-lg font-semibold text-brand-light hover:underline"
+          >
+            Create an account →
           </Link>
-        </p>
-        <p className="mt-1.5 text-center text-xs text-slate-500">
-          Forgot your password?{' '}
-          <Link href="/reset" className="text-brand-light underline">
-            Reset it
-          </Link>
-        </p>
+        </div>
       </div>
     </main>
   );

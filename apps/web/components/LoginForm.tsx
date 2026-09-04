@@ -1,6 +1,7 @@
 'use client';
 
 import { useActionState } from 'react';
+import Link from 'next/link';
 import { signInAction, type ActionResult } from '@/lib/actions';
 import { SubmitButton } from './SubmitButton';
 
@@ -28,6 +29,11 @@ export function LoginForm() {
           autoComplete="current-password"
           className="mt-1 w-full rounded-md border border-slate-700 bg-slate-800 text-slate-100 placeholder-slate-500 px-3 py-2 text-sm focus:border-brand focus:outline-none"
         />
+        <div className="mt-1.5 text-right">
+          <Link href="/reset" className="text-xs text-brand-light hover:underline">
+            Forgot password?
+          </Link>
+        </div>
       </div>
       {state && !state.ok && (
         <p className="text-sm text-red-600">{state.error}</p>
