@@ -190,7 +190,7 @@ export function RegisterPc({ platform = 'windows' }: { platform?: Platform }) {
             if (e.target === e.currentTarget) close();
           }}
         >
-          <div className="animate-modal w-full max-w-lg rounded-2xl border border-slate-700/60 bg-slate-900 p-6 shadow-2xl">
+          <div className="animate-modal max-h-[90vh] w-full max-w-lg overflow-y-auto rounded-2xl border border-slate-700/60 bg-slate-900 p-6 shadow-2xl">
             <div className="mb-4 flex items-center justify-between">
               <h2 className="text-base font-semibold text-white">
                 {platform === 'mac' ? 'Register this Mac' : 'Register this PC'}
