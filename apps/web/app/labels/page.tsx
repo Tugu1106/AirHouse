@@ -15,7 +15,9 @@ async function toLabel(it: ItemWithRelations) {
     id: it.id,
     type: getItemType(it.type)?.label ?? it.type,
     name: str(props.model) ?? str(props.system_name) ?? str(props.serial) ?? '',
-    tag: `AIR-${it.id.slice(0, 8).toUpperCase()}`,
+    // 3rd line: the computer's system name (e.g. AIR-SHINEKHUU); items without
+    // one (monitors, mice, …) fall back to the short asset id so it's still labeled.
+    tag: str(props.system_name) ?? `AIR-${it.id.slice(0, 8).toUpperCase()}`,
     qr: await QRCode.toString(scanUrl(it.id), { type: 'svg', margin: 0, width: 160 }),
   };
 }
