@@ -43,6 +43,25 @@ const ACTION_LABEL: Record<string, string> = {
   hard_delete: 'Purged',
 };
 
+// Color GROUPS so a whole class of action reads as one color (create = green,
+// edits = blue, moves = amber, removals = red). Unknown actions stay neutral.
+const ACTION_COLOR: Record<string, string> = {
+  create: 'text-emerald-300',
+  update: 'text-sky-300',
+  transfer: 'text-amber-300',
+  soft_delete: 'text-red-300',
+  hard_delete: 'text-red-300',
+};
+const colorFor = (action: string) => ACTION_COLOR[action] ?? 'text-slate-300';
+
+// Legend shown above the log so the colors are self-explanatory.
+const LEGEND: { label: string; cls: string }[] = [
+  { label: 'Created', cls: 'text-emerald-300' },
+  { label: 'Updated', cls: 'text-sky-300' },
+  { label: 'Transferred', cls: 'text-amber-300' },
+  { label: 'Deleted / Purged', cls: 'text-red-300' },
+];
+
 // YYYY-MM-DD HH:mm:ss in the viewer's local time (sv-SE gives an ISO-like format).
 const ts = (iso: string) => new Date(iso).toLocaleString('sv-SE');
 
@@ -63,12 +82,12 @@ function TerminalRow({ r }: { r: ActivityRow }) {
   const name = rest.join(' · ');
   const thing = name ? `${kind.toLowerCase()} ${name}` : kind.toLowerCase();
   return (
-    <>
+    <span className={colorFor(r.action)}>
       {`${ts(r.when)}  ${r.actor}`}
-      {r.via && <span className="font-semibold text-sky-400"> [{r.via.toUpperCase()}]</span>}
+      {r.via && <span className="font-semibold text-violet-300"> [{r.via.toUpperCase()}]</span>}
       {` ${verb} ${thing}${r.detail ? ` — ${r.detail}` : ''}`}
       {'\n'}
-    </>
+    </span>
   );
 }
 
@@ -204,6 +223,14 @@ export function ActivityView({
             </button>
           </div>
         </div>
+        <div className="flex flex-wrap items-center gap-x-4 gap-y-1 border-b border-slate-800 px-3 py-1.5 font-mono text-[11px]">
+          {LEGEND.map((l) => (
+            <span key={l.label} className="flex items-center gap-1.5">
+              <span className={`h-2 w-2 rounded-full bg-current ${l.cls}`} />
+              <span className={l.cls}>{l.label}</span>
+            </span>
+          ))}
+        </div>
         <div
           ref={scrollRef}
           onScroll={onScroll}
@@ -221,7 +248,7 @@ export function ActivityView({
             </div>
             <pre
               ref={contentRef}
-              className="whitespace-pre-wrap break-words font-mono text-xs leading-relaxed text-emerald-300 selection:bg-emerald-500/30"
+              className="whitespace-pre-wrap break-words font-mono text-xs leading-relaxed text-slate-300 selection:bg-emerald-500/30"
             >
               {rows.length === 0
                 ? '# no activity yet'
