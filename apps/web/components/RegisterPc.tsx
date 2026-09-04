@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { useRouter } from 'next/navigation';
 import { Laptop, Command, Download, RefreshCw } from 'lucide-react';
 
@@ -183,7 +184,9 @@ export function RegisterPc({ platform = 'windows' }: { platform?: Platform }) {
         {LABEL[platform]}
       </button>
 
-      {open && (
+      {open &&
+        typeof document !== 'undefined' &&
+        createPortal(
         <div
           className="animate-backdrop fixed inset-0 z-50 flex items-center justify-center bg-slate-950/70 p-4 backdrop-blur-sm"
           onMouseDown={(e) => {
@@ -320,8 +323,9 @@ export function RegisterPc({ platform = 'windows' }: { platform?: Platform }) {
               </div>
             )}
           </div>
-        </div>
-      )}
+        </div>,
+          document.body,
+        )}
     </>
   );
 }
