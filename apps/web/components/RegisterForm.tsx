@@ -50,13 +50,24 @@ export function RegisterForm({ branches }: { branches: BranchLite[] }) {
             placeholder="At least 8 characters"
           />
         </div>
+        <div className="col-span-2">
+          <label className="block text-sm font-medium text-slate-300">Viber phone *</label>
+          <input
+            name="phone"
+            type="tel"
+            required
+            autoComplete="tel"
+            className="field mt-1"
+            placeholder="e.g. 8800xxxx"
+          />
+        </div>
 
         <div>
-          <label className="block text-sm font-medium text-slate-300">Branch</label>
+          <label className="block text-sm font-medium text-slate-300">Branch *</label>
           <Select name="branch_id" defaultValue="" placeholder="Select…" className="mt-1" options={branchOpts} />
         </div>
         <div>
-          <label className="block text-sm font-medium text-slate-300">Sector</label>
+          <label className="block text-sm font-medium text-slate-300">Sector *</label>
           <Select
             name="sector"
             value={sector}
@@ -70,7 +81,7 @@ export function RegisterForm({ branches }: { branches: BranchLite[] }) {
           />
         </div>
         <div className="col-span-2">
-          <label className="block text-sm font-medium text-slate-300">Position</label>
+          <label className="block text-sm font-medium text-slate-300">Position *</label>
           <Select
             name="position"
             value={position}

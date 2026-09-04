@@ -112,7 +112,7 @@ export default function EmployeePage() {
 
         <dl className="mt-6 grid grid-cols-2 gap-x-6 gap-y-4 border-t border-slate-800 pt-5 sm:grid-cols-3">
           <Detail label="Email" value={emp.email ?? '—'} />
-          <Detail label="Phone" value={emp.phone ?? '—'} />
+          <Detail label="Viber phone" value={emp.phone ?? '—'} />
           <Detail label="Position" value={positionLabel(emp.position)} />
           <Detail label="Sector" value={emp.sector ?? '—'} />
           <Detail label="Branch" value={branchName} />

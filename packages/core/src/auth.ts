@@ -67,6 +67,7 @@ export async function registerWorker(input: {
   name: string;
   email: string;
   password: string;
+  phone: string | null;
   branchId: string | null;
   sector: string | null;
   position: string | null;
@@ -75,9 +76,14 @@ export async function registerWorker(input: {
   const db = getDb();
   const name = input.name.trim();
   const email = input.email.trim();
+  const phone = input.phone?.trim() || '';
   if (!name) throw new Error('Full name is required.');
   if (!email) throw new Error('Email is required.');
   if (input.password.length < 8) throw new Error('Password must be at least 8 characters.');
+  if (!phone) throw new Error('Viber phone is required.');
+  if (!input.branchId) throw new Error('Please choose your branch.');
+  if (!input.sector) throw new Error('Please choose your sector.');
+  if (!input.position) throw new Error('Please choose your position.');
 
   const takenUser = await db.selectFrom('users').select('id').where('email', 'ilike', email).executeTakeFirst();
   if (takenUser) throw new Error('An account with this email already exists. Try signing in.');
@@ -99,6 +105,7 @@ export async function registerWorker(input: {
       status: input.status,
       active: input.status !== 'fired',
       email,
+      phone,
     })
     .returning(['id'])
     .executeTakeFirstOrThrow();

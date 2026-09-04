@@ -316,7 +316,7 @@ export function EmployeesView() {
               <th className="px-4 py-3">Name</th>
               <th className="px-4 py-3">Position</th>
               <th className="px-4 py-3">Sector</th>
-              <th className="px-4 py-3">Phone</th>
+              <th className="px-4 py-3">Viber</th>
               <th className="px-4 py-3">Branch</th>
               <th className="px-4 py-3">Status</th>
               <th className="px-4 py-3">Items</th>
@@ -504,7 +504,7 @@ export function EmployeeForm({
           <input name="name" required defaultValue={emp?.name ?? ''} className="mt-1 w-full rounded-md border border-slate-700 bg-slate-800 text-slate-100 placeholder-slate-500 px-3 py-2 text-sm" />
         </div>
         <div>
-          <label className="block text-sm font-medium text-slate-300">Phone</label>
+          <label className="block text-sm font-medium text-slate-300">Viber phone</label>
           <input name="phone" defaultValue={emp?.phone ?? ''} className="mt-1 w-full rounded-md border border-slate-700 bg-slate-800 text-slate-100 placeholder-slate-500 px-3 py-2 text-sm" />
         </div>
         <div>

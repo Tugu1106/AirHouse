@@ -139,6 +139,7 @@ export async function registerAction(
       name: String(formData.get('name') ?? ''),
       email: String(formData.get('email') ?? ''),
       password: String(formData.get('password') ?? ''),
+      phone: String(formData.get('phone') ?? '') || null,
       branchId: String(formData.get('branch_id') ?? '') || null,
       sector: String(formData.get('sector') ?? '') || null,
       position: String(formData.get('position') ?? '') || null,
