@@ -223,14 +223,6 @@ export function ActivityView({
             </button>
           </div>
         </div>
-        <div className="flex flex-wrap items-center gap-x-4 gap-y-1 border-b border-slate-800 px-3 py-1.5 font-mono text-[11px]">
-          {LEGEND.map((l) => (
-            <span key={l.label} className="flex items-center gap-1.5">
-              <span className={`h-2 w-2 rounded-full bg-current ${l.cls}`} />
-              <span className={l.cls}>{l.label}</span>
-            </span>
-          ))}
-        </div>
         <div
           ref={scrollRef}
           onScroll={onScroll}
@@ -259,6 +251,17 @@ export function ActivityView({
             <div aria-hidden className="h-48" />
           </div>
         </div>
+      </div>
+
+      {/* Color legend — outside the terminal, below it. */}
+      <div className="flex flex-wrap items-center gap-x-4 gap-y-1 px-1 font-mono text-[11px] text-slate-500">
+        <span className="uppercase tracking-wide">Legend:</span>
+        {LEGEND.map((l) => (
+          <span key={l.label} className="flex items-center gap-1.5">
+            <span className={`h-2 w-2 rounded-full bg-current ${l.cls}`} />
+            <span className={l.cls}>{l.label}</span>
+          </span>
+        ))}
       </div>
     </main>
   );
